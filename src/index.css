@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cream-100 text-forest-700 font-body;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #C88820, #F0B823 40%, #E8A838);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-forest {
+    background: linear-gradient(135deg, #1E3D2A, #3D7254 50%, #4A8C65);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .bg-warm-gradient {
+    background: linear-gradient(160deg, #FFFBF2 0%, #F5EDD6 60%, #EDE0C4 100%);
+  }
+  .bg-forest-gradient {
+    background: linear-gradient(135deg, #2F5940 0%, #3D7254 50%, #4A8C65 100%);
+  }
+  .bg-gold-gradient {
+    background: linear-gradient(135deg, #C88820 0%, #E8A838 50%, #F0B823 100%);
+  }
+  .bg-sky-gradient {
+    background: linear-gradient(135deg, #265475 0%, #4A8AB8 50%, #5BA3D0 100%);
+  }
+  .card-lift {
+    @apply transition-all duration-200;
+  }
+  .card-lift:hover {
+    @apply -translate-y-0.5 shadow-card-hover;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #F5EDD6; }
+::-webkit-scrollbar-thumb { background: #A8D1B8; border-radius: 99px; }
+
+/* Page transition */
+.page-enter {
+  animation: slide-up 0.35s ease-out;
+}
+
+/* Passport stamp animation */
+.stamp-animation {
+  animation: stamp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Flip card */
+.flip-card-inner {
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+  position: relative;
+}
+.flip-card.flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+.flip-card-front,
+.flip-card-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-card-back {
+  transform: rotateY(180deg);
+  position: absolute;
+  inset: 0;
+}

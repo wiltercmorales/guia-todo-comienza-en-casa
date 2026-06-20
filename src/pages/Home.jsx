@@ -1,0 +1,133 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useApp } from '../context/AppContext'
+import { ArrowRight, BookOpen, Star, Heart, Users } from 'lucide-react'
+
+export default function Home() {
+  const navigate = useNavigate()
+  const { started, startProgram } = useApp()
+  const [name, setName] = useState('')
+  const [showForm, setShowForm] = useState(false)
+
+  const handleStart = () => {
+    if (!started) {
+      setShowForm(true)
+    } else {
+      navigate('/dashboard')
+    }
+  }
+
+  const handleConfirm = () => {
+    startProgram(name.trim())
+    navigate('/dashboard')
+  }
+
+  return (
+    <div className="min-h-screen bg-warm-gradient flex flex-col overflow-hidden relative">
+      {/* Decorative background circles */}
+      <div className="absolute top-0 right-0 w-64 h-64 bg-gold-200/30 rounded-full -translate-y-1/3 translate-x-1/3 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-20 left-0 w-48 h-48 bg-forest-200/30 rounded-full translate-y-1/3 -translate-x-1/3 blur-3xl pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-sky-100/20 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="relative flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
+        {/* Floating hero icon */}
+        <div className="relative mb-8 animate-float">
+          <div className="w-28 h-28 rounded-[2rem] bg-white shadow-warm-lg flex items-center justify-center">
+            <span className="text-6xl">🏠</span>
+          </div>
+          <div className="absolute -top-3 -right-3 w-10 h-10 rounded-2xl bg-gold-gradient shadow-warm flex items-center justify-center text-xl animate-float-slow">
+            ✝️
+          </div>
+          <div className="absolute -bottom-2 -left-3 w-9 h-9 rounded-xl bg-sky-gradient shadow-blue flex items-center justify-center text-lg">
+            ⭐
+          </div>
+        </div>
+
+        {/* Title */}
+        <h1 className="font-display text-4xl font-bold text-forest-700 leading-tight mb-2">
+          Todo Comienza<br />
+          <span className="text-gradient-gold">en Casa</span>
+        </h1>
+        <p className="font-body text-forest-500 text-base leading-relaxed mb-8 max-w-xs">
+          Guía interactiva para formar el hábito del culto personal infantil en familia
+        </p>
+
+        {/* Feature pills */}
+        <div className="w-full max-w-sm space-y-2.5 mb-10">
+          {[
+            { icon: <BookOpen size={18} />, text: '10 semanas de guía paso a paso', color: 'sky' },
+            { icon: <Users size={18} />, text: 'Padres e hijos de 8 y 9 años', color: 'forest' },
+            { icon: <Star size={18} />, text: 'Oración, Biblia y acción diaria', color: 'gold' },
+            { icon: <Heart size={18} />, text: 'Pasaporte con Jesús incluido', color: 'rose' },
+          ].map((item, i) => (
+            <div
+              key={i}
+              className="bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-3 flex items-center gap-3 shadow-card"
+              style={{ animationDelay: `${i * 80}ms` }}
+            >
+              <div className={`w-8 h-8 rounded-xl bg-${item.color}-100 text-${item.color}-600 flex items-center justify-center flex-shrink-0`}>
+                {item.icon}
+              </div>
+              <span className="font-body text-forest-700 text-sm font-semibold">{item.text}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA */}
+        {!showForm ? (
+          <button
+            onClick={handleStart}
+            className="w-full max-w-sm bg-forest-gradient text-white font-body font-bold py-4 px-8 rounded-2xl flex items-center justify-center gap-2 shadow-green-lg transition-all duration-200 hover:shadow-green active:scale-95 text-base"
+          >
+            {started ? '✅ Continuar programa' : '🚀 Iniciar programa'}
+            <ArrowRight size={20} />
+          </button>
+        ) : (
+          <div className="w-full max-w-sm space-y-3 animate-scale-in">
+            <div className="bg-white rounded-3xl p-5 shadow-warm">
+              <p className="font-display text-forest-700 font-semibold mb-3 text-center">
+                ¿Cómo se llama tu pequeño?
+              </p>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Nombre del niño (opcional)"
+                className="w-full bg-cream-100 rounded-2xl px-4 py-3 font-body text-forest-700 placeholder-forest-300 border-2 border-cream-300 focus:border-forest-400 focus:outline-none mb-3"
+                maxLength={30}
+                autoFocus
+                onKeyDown={e => e.key === 'Enter' && handleConfirm()}
+              />
+              <button
+                onClick={handleConfirm}
+                className="w-full bg-forest-gradient text-white font-body font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-green active:scale-95 transition-all"
+              >
+                ¡Comenzamos! <ArrowRight size={18} />
+              </button>
+              <button
+                onClick={() => setShowForm(false)}
+                className="w-full mt-2 text-forest-400 font-body text-sm py-2"
+              >
+                Volver
+              </button>
+            </div>
+          </div>
+        )}
+
+        <p className="font-body text-forest-400 text-xs mt-4">
+          Un momento especial con Dios, cada día
+        </p>
+      </div>
+
+      {/* Bible verse footer */}
+      <div className="relative mx-4 mb-8">
+        <div className="bg-white/70 backdrop-blur-sm px-6 py-5 rounded-3xl shadow-warm border border-cream-300 text-center">
+          <p className="font-display italic text-forest-600 text-sm leading-relaxed">
+            "Instruye al niño en su camino, y aun cuando fuere viejo no se apartará de él."
+          </p>
+          <p className="font-body text-forest-400 text-xs mt-1.5 font-semibold">Proverbios 22:6</p>
+        </div>
+      </div>
+    </div>
+  )
+}
