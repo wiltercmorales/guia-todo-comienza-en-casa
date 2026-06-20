@@ -100,7 +100,7 @@ export const weeks = [
       { title: 'Descubrir la enseñanza', description: '"¿Qué aprendiste hoy de la Biblia?" Si dice "no sé": "Pensemos juntos. En esta historia vimos que Dios ___."' },
       { title: 'Acción práctica', description: '"Hoy puedes elegir: agradecer, ayudar o ser amable. ¿Cuál quieres practicar?"' },
       { title: 'Sticker con conversación', description: 'El niño elige el sticker. "¿Por qué elegiste ese sticker?" Si no sabe, decir: "Está bien. Lo importante es que buscamos a Dios."' },
-      { title: 'Oración final', description: '"¿Quieres decir una frase a Dios? Puede ser: 'Gracias, Dios'." Si no quiere, el padre ora tranquilamente.' },
+      { title: 'Oración final', description: "\"¿Quieres decir una frase a Dios? Puede ser: 'Gracias, Dios'.\" Si no quiere, el padre ora tranquilamente." },
     ],
     centralQuestion: '¿Qué aprendiste hoy de la Biblia?',
     suggestedPhrases: [
@@ -131,13 +131,13 @@ export const weeks = [
     technique: 'Participación guiada',
     steps: [
       { title: 'El niño trae un material', description: '"Hoy tú traerás el Pasaporte con Jesús. Yo traeré la Biblia ilustrada." Asignar una responsabilidad concreta.' },
-      { title: 'Oración inicial compartida', description: '"¿Quieres empezar tú diciendo 'Gracias, Dios'?" Permitirlo si acepta. Si no, el padre ora sin presión.' },
+      { title: 'Oración inicial compartida', description: "\"¿Quieres empezar tú diciendo 'Gracias, Dios'?\" Permitirlo si acepta. Si no, el padre ora sin presión." },
       { title: 'Lectura participativa', description: 'El padre lee una parte, luego: "Ahora tú puedes leer esta frase." O: "Descríbeme qué ves en esta imagen."' },
       { title: 'Comprensión', description: '"¿Qué ocurrió en esta historia?" Ayudar si es necesario: "Primero pasó ___, luego ___, y al final ___."' },
       { title: 'Enseñanza espiritual', description: '"¿Qué nos enseña esta historia acerca de Dios?" Escuchar con genuino interés su respuesta.' },
       { title: 'Aplicación práctica', description: '"¿Cómo puedo practicar hoy lo que aprendí?" Ofrecer opciones: ayudar en casa, orar por alguien, ser amable, decir la verdad, compartir algo.' },
       { title: 'Sticker con explicación', description: 'El niño coloca su sticker. "¿Por qué elegiste ese?" Escuchar sin corregir ni evaluar.' },
-      { title: 'Oración final del niño', description: '"Puedes decir una oración de una frase. Por ejemplo: 'Dios, ayúdame a ser amable hoy'."' },
+      { title: 'Oración final del niño', description: "\"Puedes decir una oración de una frase. Por ejemplo: 'Dios, ayúdame a ser amable hoy'.\"" },
     ],
     centralQuestion: '¿Cómo puedo practicar hoy lo que aprendí?',
     suggestedPhrases: [
