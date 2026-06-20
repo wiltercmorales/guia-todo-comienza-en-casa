@@ -54,6 +54,18 @@ export default function Layout() {
       {/* Page content */}
       <main className="flex-1 overflow-y-auto pb-24 animate-fade-in">
         <Outlet />
+
+        <footer className="mt-12 py-6 border-t border-amber-100 text-center">
+          <p className="text-sm font-medium text-slate-700">
+            © 2026 Todo Comienza en Casa • Todos los derechos reservados
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            Desarrollado por <strong>Pr. Charmin Morales</strong>
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Iglesia Adventista del Séptimo Día • Iglesia Villa Unión
+          </p>
+        </footer>
       </main>
 
       {/* Bottom nav */}
