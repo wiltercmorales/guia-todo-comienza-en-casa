@@ -100,7 +100,7 @@ export const weeks = [
       { title: 'Descubrir la enseñanza', description: '"¿Qué aprendiste hoy de la Biblia?" Si dice "no sé": "Pensemos juntos. En esta historia vimos que Dios ___."' },
       { title: 'Acción práctica', description: '"Hoy puedes elegir: agradecer, ayudar o ser amable. ¿Cuál quieres practicar?"' },
       { title: 'Sticker con conversación', description: 'El niño elige el sticker. "¿Por qué elegiste ese sticker?" Si no sabe, decir: "Está bien. Lo importante es que buscamos a Dios."' },
-      { title: 'Oración final', description: "\"¿Quieres decir una frase a Dios? Puede ser: 'Gracias, Dios'.\" Si no quiere, el padre ora tranquilamente." },
+      { title: 'Oración final', description: "¿Quieres decir una frase a Dios? Puede ser: 'Gracias, Dios'. Si no quieres hablar mucho, puedes decirlo en tu corazón." },
     ],
     centralQuestion: '¿Qué aprendiste hoy de la Biblia?',
     suggestedPhrases: [
