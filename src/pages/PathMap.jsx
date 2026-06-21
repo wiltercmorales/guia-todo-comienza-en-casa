@@ -1,539 +1,629 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Lock, Star, CheckCircle, ChevronRight, X, Map } from 'lucide-react'
+import { X, ChevronRight, Flame, Star } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { MAP_WEEKS, getDayContent } from '../data/dailyContent'
+import { getDayContent, MAP_WEEKS } from '../data/dailyContent'
 
-// ── Map geometry ─────────────────────────────────────────────────────────────
-// Container: 375px wide × 2200px tall (SVG viewBox)
-const VB_W = 375
-const VB_H = 2200
-const R_NODE = 36   // week node radius
-const R_DAY = 10    // day dot radius
+// ─── Map geometry ─────────────────────────────────────────────────────────────
+const VB_W   = 390
+const ROWS   = 14
+const COLS   = 5
+const ROW_H  = 136
+const PAD_X  = 52
+const COL_GAP = (VB_W - 2 * PAD_X) / (COLS - 1)   // ≈ 71.5
+const R      = 30   // node radius
+const HOME_Y = VB_W * (2200 / 390) - 90            // bottom
+const VB_H   = 2240
 
-const NODE_POS = {
-  heaven: { x: 187, y: 90 },
-  10:     { x: 270, y: 260 },
-  9:      { x: 105, y: 445 },
-  8:      { x: 270, y: 630 },
-  7:      { x: 105, y: 815 },
-  6:      { x: 270, y: 1000 },
-  5:      { x: 105, y: 1185 },
-  4:      { x: 270, y: 1370 },
-  3:      { x: 105, y: 1555 },
-  2:      { x: 270, y: 1740 },
-  1:      { x: 105, y: 1925 },
-  home:   { x: 187, y: 2110 },
+const ROW_TOP_Y = VB_H - 220   // center-y of row-0 nodes
+
+function nodePos(dayIdx) {
+  const row = Math.floor(dayIdx / COLS)
+  const col = dayIdx % COLS
+  const rtl  = row % 2 === 1
+  const xCol = rtl ? (COLS - 1 - col) : col
+  return { x: PAD_X + xCol * COL_GAP, y: ROW_TOP_Y - row * ROW_H }
 }
 
-// Bezier path connecting heaven → w10 → w9 → ... → w1 → home
-const WINDING_PATH =
-  `M 187,90` +
-  ` C 187,175 270,175 270,260` +
-  ` C 270,352 105,352 105,445` +
-  ` C 105,537 270,537 270,630` +
-  ` C 270,722 105,722 105,815` +
-  ` C 105,907 270,907 270,1000` +
-  ` C 270,1092 105,1092 105,1185` +
-  ` C 105,1277 270,1277 270,1370` +
-  ` C 270,1462 105,1462 105,1555` +
-  ` C 105,1647 270,1647 270,1740` +
-  ` C 270,1832 105,1832 105,1925` +
-  ` C 105,2017 187,2017 187,2110`
+const ALL_POS = Array.from({ length: 70 }, (_, i) => nodePos(i))
 
-// 7 day dots arranged in a 4+3 grid around a node center
-function getDayDotPositions(nodeX) {
-  const isLeft = nodeX < 187
-  const sign = isLeft ? 1 : -1   // dots extend toward center
-  const startX = nodeX + sign * (R_NODE + 14)
-  const row1 = [0, 1, 2, 3].map(i => ({ dx: startX + sign * i * 24, dy: -12 }))
-  const row2 = [0, 1, 2].map(i => ({ dx: startX + sign * 12 + sign * i * 24, dy: 12 }))
-  return [...row1, ...row2]
+// SVG winding path string
+function buildPath() {
+  let d = `M ${VB_W / 2},${VB_H - 90}`   // home
+  d += ` L ${ALL_POS[0].x},${ALL_POS[0].y}`
+
+  for (let i = 0; i < 69; i++) {
+    const currRow = Math.floor(i / COLS)
+    const nextRow = Math.floor((i + 1) / COLS)
+    const { x: cx, y: cy } = ALL_POS[i]
+    const { x: nx, y: ny } = ALL_POS[i + 1]
+
+    if (currRow === nextRow) {
+      d += ` L ${nx},${ny}`
+    } else {
+      const isRTL = currRow % 2 === 1
+      const bendX = isRTL ? PAD_X - 40 : VB_W - PAD_X + 40
+      d += ` C ${bendX},${cy} ${bendX},${ny} ${nx},${ny}`
+    }
+  }
+
+  // last day → heaven
+  d += ` L ${VB_W / 2},${100}`
+  return d
 }
 
-// Color maps
-const COLOR = {
-  sky:    { bg: '#bae6fd', ring: '#0284c7', text: '#0c4a6e', glow: '#7dd3fc' },
-  gold:   { bg: '#fde68a', ring: '#d97706', text: '#78350f', glow: '#fcd34d' },
-  forest: { bg: '#bbf7d0', ring: '#16a34a', text: '#14532d', glow: '#86efac' },
-  rose:   { bg: '#fecdd3', ring: '#e11d48', text: '#881337', glow: '#fda4af' },
+const PATH_D = buildPath()
+
+// Zone y-boundaries (top edge, in SVG coords — origin top-left)
+// CASA:    rows 0-1  → y ~2020-1884
+// JARDÍN:  rows 2-4  → y ~1748-1476
+// BOSQUE:  rows 5-7  → y ~1340-1068
+// MONTAÑA: rows 8-10 → y ~932-660
+// CIELO:   rows 11-13→ y ~524-252
+const ZONE_Y = {
+  cielo:  { top: 0,    bot: 570  },
+  mont:   { top: 570,  bot: 1020 },
+  bosq:   { top: 1020, bot: 1470 },
+  jard:   { top: 1470, bot: 1910 },
+  casa:   { top: 1910, bot: VB_H },
 }
 
-// Biblical encouragement phrases shown on day completion
-const PHRASES = [
-  'Todo lo puedo en Cristo que me fortalece.',
-  '¡Bien hecho! Sigue caminando con Jesús.',
-  'El Señor está contigo en cada paso.',
-  'Tu constancia agrada a Dios.',
-  '¡Hoy fue un día de crecimiento espiritual!',
-  'Dios ve tu corazón y sonríe.',
-  'Cada día más cerca del cielo.',
-]
+// Day-index → weekId + dayId
+function toDayIds(idx) {
+  return { weekId: Math.floor(idx / 7) + 1, dayId: (idx % 7) + 1 }
+}
 
-function WeekBadge({ week, status, daysDone, onClick }) {
-  const { x, y } = NODE_POS[week.id]
-  const c = COLOR[week.color] || COLOR.forest
-  const isCompleted = status === 'completed'
-  const isCurrent = status === 'current'
-  const isLocked = status === 'locked'
-
+// ─── SVG Background ────────────────────────────────────────────────────────────
+function MapBackground() {
   return (
-    <g onClick={!isLocked ? onClick : undefined} style={{ cursor: isLocked ? 'default' : 'pointer' }}>
-      {/* Glow ring for current week */}
-      {isCurrent && (
-        <circle cx={x} cy={y} r={R_NODE + 10} fill={c.glow} opacity={0.4}>
-          <animate attributeName="r" values={`${R_NODE+8};${R_NODE+14};${R_NODE+8}`} dur="2s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.4;0.15;0.4" dur="2s" repeatCount="indefinite" />
-        </circle>
-      )}
+    <>
+      <defs>
+        <linearGradient id="bgFull" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#0ea5e9" stopOpacity="0.18"/>
+          <stop offset="25%"  stopColor="#bae6fd" stopOpacity="0.20"/>
+          <stop offset="50%"  stopColor="#d1fae5" stopOpacity="0.22"/>
+          <stop offset="75%"  stopColor="#fef9c3" stopOpacity="0.25"/>
+          <stop offset="100%" stopColor="#fef3c7" stopOpacity="0.35"/>
+        </linearGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="2" dy="4" stdDeviation="4" floodColor="#000" floodOpacity="0.2"/>
+        </filter>
+        <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="8" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <radialGradient id="sunGlow" cx="50%" cy="0%" r="50%">
+          <stop offset="0%"   stopColor="#fef08a" stopOpacity="0.6"/>
+          <stop offset="100%" stopColor="#fef08a" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
 
-      {/* Gold shimmer ring for completed */}
-      {isCompleted && (
-        <circle cx={x} cy={y} r={R_NODE + 6} fill="none" stroke="#f59e0b" strokeWidth={3} opacity={0.6} />
-      )}
+      {/* Full background */}
+      <rect x={0} y={0} width={VB_W} height={VB_H} fill="url(#bgFull)"/>
 
-      {/* Node circle */}
-      <circle
-        cx={x}
-        cy={y}
-        r={R_NODE}
-        fill={isLocked ? '#e5e7eb' : c.bg}
-        stroke={isLocked ? '#9ca3af' : c.ring}
-        strokeWidth={isCompleted ? 3 : 2}
-        opacity={isLocked ? 0.55 : 1}
-      />
+      {/* CIELO zone */}
+      <rect x={0} y={0} width={VB_W} height={570} fill="#e0f2fe" opacity={0.55}/>
+      {/* Sun glow from top */}
+      <ellipse cx={VB_W/2} cy={60} rx={160} ry={140} fill="url(#sunGlow)"/>
+      {/* Light rays */}
+      {[0,28,56,84,112,140,168,196,224].map((angle, i) => (
+        <line key={i}
+          x1={VB_W/2} y1={60}
+          x2={VB_W/2 + Math.cos((angle-90)*Math.PI/180)*300}
+          y2={60 + Math.sin((angle-90)*Math.PI/180)*300}
+          stroke="#fef08a" strokeWidth="8" opacity="0.12"
+        />
+      ))}
+      {/* Clouds */}
+      {[
+        [55,  155], [170, 120], [300, 170],
+        [30,  300], [260, 280], [130, 380],
+        [320, 400], [70,  470], [220, 500],
+      ].map(([cx, cy], i) => (
+        <g key={i} opacity={0.88}>
+          <ellipse cx={cx}    cy={cy}    rx={36} ry={18} fill="white"/>
+          <ellipse cx={cx+22} cy={cy-8}  rx={26} ry={15} fill="white"/>
+          <ellipse cx={cx-22} cy={cy-4}  rx={22} ry={13} fill="white"/>
+        </g>
+      ))}
 
-      {/* Week icon (emoji rendered as foreign object) */}
-      <foreignObject x={x - 18} y={y - 22} width={36} height={36}>
-        <div xmlns="http://www.w3.org/1999/xhtml" style={{
-          fontSize: isLocked ? '18px' : '22px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: '100%', height: '100%',
-          filter: isLocked ? 'grayscale(1)' : 'none',
-        }}>
-          {isLocked ? '🔒' : week.icon}
-        </div>
-      </foreignObject>
+      {/* MONTAÑA zone */}
+      <rect x={0} y={570} width={VB_W} height={450} fill="#ede9fe" opacity={0.4}/>
+      {/* Mountain silhouettes */}
+      <polygon points="195,590 30,1010 360,1010"  fill="#c4b5fd" opacity={0.55}/>
+      <polygon points="70,660  -20,1010 180,1010" fill="#a78bfa" opacity={0.45}/>
+      <polygon points="320,620  180,1010 460,1010" fill="#8b5cf6" opacity={0.35}/>
+      {/* Snow peaks */}
+      <polygon points="195,590 165,660 225,660" fill="white" opacity={0.85}/>
+      <polygon points="70,660  50,710  90,710"  fill="white" opacity={0.75}/>
+      <polygon points="320,620 298,680 342,680" fill="white" opacity={0.75}/>
 
-      {/* Checkmark star for completed */}
-      {isCompleted && (
-        <circle cx={x + R_NODE - 2} cy={y - R_NODE + 2} r={10} fill="#f59e0b" stroke="white" strokeWidth={2} />
-      )}
-      {isCompleted && (
-        <text x={x + R_NODE - 2} y={y - R_NODE + 2} textAnchor="middle" dominantBaseline="central"
-          style={{ fontSize: '10px', fill: 'white', fontWeight: 'bold', userSelect: 'none' }}>✓</text>
-      )}
+      {/* BOSQUE zone */}
+      <rect x={0} y={1020} width={VB_W} height={450} fill="#d1fae5" opacity={0.35}/>
+      {/* Trees */}
+      {[35,100,185,270,350].map((tx, i) => {
+        const ty = 1030 + (i%2)*30
+        return (
+          <g key={i}>
+            <rect x={tx-5} y={ty+40} width={10} height={35} fill="#7a5c3a" rx={3}/>
+            <ellipse cx={tx} cy={ty+25} rx={28} ry={22} fill="#22c55e" opacity={0.9}/>
+            <ellipse cx={tx-12} cy={ty+38} rx={20} ry={16} fill="#16a34a" opacity={0.85}/>
+            <ellipse cx={tx+12} cy={ty+38} rx={20} ry={16} fill="#16a34a" opacity={0.85}/>
+            <ellipse cx={tx} cy={ty+15} rx={18} ry={14} fill="#4ade80" opacity={0.8}/>
+          </g>
+        )
+      })}
+      {/* Ground line */}
+      <ellipse cx={VB_W/2} cy={1460} rx={200} ry={20} fill="#86efac" opacity={0.35}/>
 
-      {/* Week label */}
-      <text
-        x={x}
-        y={y + R_NODE + 14}
-        textAnchor="middle"
-        style={{ fontSize: '9px', fontWeight: '700', fill: isLocked ? '#9ca3af' : c.text,
-          fontFamily: 'Nunito, sans-serif', userSelect: 'none' }}
-      >
-        {`Sem. ${week.id}`}
-      </text>
+      {/* JARDÍN zone */}
+      <rect x={0} y={1470} width={VB_W} height={440} fill="#ecfccb" opacity={0.35}/>
+      {/* Flowers */}
+      {[55,120,190,260,330].map((fx, i) => {
+        const fy = 1600 + (i%3)*40
+        const petal = ['#f9a8d4','#fca5a5','#fde68a','#86efac','#93c5fd'][i]
+        return (
+          <g key={i} transform={`translate(${fx},${fy})`}>
+            {[0,72,144,216,288].map(a => (
+              <ellipse key={a}
+                cx={Math.cos(a*Math.PI/180)*8} cy={Math.sin(a*Math.PI/180)*8}
+                rx={6} ry={4}
+                fill={petal} opacity={0.8}
+                transform={`rotate(${a})`}
+              />
+            ))}
+            <circle r={4} fill="#fef08a"/>
+            <line x1={0} y1={0} x2={0} y2={18} stroke="#22c55e" strokeWidth={2}/>
+          </g>
+        )
+      })}
 
-      {/* Day progress bar (mini) */}
-      {!isLocked && (
-        <>
-          <rect x={x - 22} y={y + R_NODE + 22} width={44} height={5} rx={2.5}
-            fill={isLocked ? '#e5e7eb' : '#d1fae5'} />
-          <rect x={x - 22} y={y + R_NODE + 22} width={Math.round((daysDone / 7) * 44)} height={5} rx={2.5}
-            fill={isCompleted ? '#f59e0b' : '#16a34a'} />
-        </>
-      )}
-    </g>
+      {/* CASA zone */}
+      <rect x={0} y={1910} width={VB_W} height={VB_H - 1910} fill="#fef3c7" opacity={0.55}/>
+      {/* Path/road behind house */}
+      <ellipse cx={VB_W/2} cy={VB_H - 60} rx={60} ry={14} fill="#d97706" opacity={0.25}/>
+      {/* House */}
+      <g transform={`translate(${VB_W/2}, ${VB_H - 130})`}>
+        <rect x={-38} y={-50} width={76} height={54} fill="#fde68a" rx={4}/>
+        <polygon points="0,-82 -48,-48 48,-48" fill="#ef4444" opacity={0.85}/>
+        <rect x={-10} y={-28} width={20} height={28} fill="#92400e" rx={3}/>
+        <rect x={-32} y={-38} width={18} height={14} fill="#bae6fd" rx={2}/>
+        <rect x={14}  y={-38} width={18} height={14} fill="#bae6fd" rx={2}/>
+        <rect x={12}  y={-80} width={10} height={28} fill="#b45309"/>
+        <ellipse cx={17} cy={-84} rx={6} ry={5} fill="white" opacity={0.6}/>
+        <ellipse cx={19} cy={-92} rx={5} ry={4} fill="white" opacity={0.45}/>
+      </g>
+    </>
   )
 }
 
-function HeavenNode() {
-  const { x, y } = NODE_POS.heaven
+// ─── Winding track ────────────────────────────────────────────────────────────
+function Track({ completedCount }) {
   return (
-    <g>
-      {/* Outer glow rings */}
-      <circle cx={x} cy={y} r={56} fill="#fef9c3" opacity={0.35} />
-      <circle cx={x} cy={y} r={44} fill="#fef08a" opacity={0.45} />
-      {/* Main circle */}
-      <circle cx={x} cy={y} r={34} fill="#fef3c7" stroke="#f59e0b" strokeWidth={3} />
-      <foreignObject x={x - 20} y={y - 22} width={40} height={40}>
-        <div xmlns="http://www.w3.org/1999/xhtml"
-          style={{ fontSize: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: '100%', height: '100%' }}>
-          ✝️
-        </div>
-      </foreignObject>
-      <text x={x} y={y + 48} textAnchor="middle"
+    <>
+      {/* Shadow */}
+      <path d={PATH_D} fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth={22}
+        strokeLinecap="round" strokeLinejoin="round"
+        transform="translate(3,5)"
+      />
+      {/* Gray base */}
+      <path d={PATH_D} fill="none" stroke="#e5e7eb" strokeWidth={20}
+        strokeLinecap="round" strokeLinejoin="round"
+      />
+      {/* White center line (makes it look like a road) */}
+      <path d={PATH_D} fill="none" stroke="white" strokeWidth={10}
+        strokeLinecap="round" strokeLinejoin="round" opacity={0.7}
+      />
+    </>
+  )
+}
+
+// ─── Heaven & Home nodes ──────────────────────────────────────────────────────
+function HeavenNode() {
+  const cx = VB_W / 2, cy = 100
+  return (
+    <g filter="url(#glow)">
+      <circle cx={cx} cy={cy} r={50} fill="#fef08a" opacity={0.35}/>
+      <circle cx={cx} cy={cy} r={38} fill="#fef9c3" opacity={0.65}/>
+      <circle cx={cx} cy={cy} r={28} fill="#fef3c7" stroke="#f59e0b" strokeWidth={3}/>
+      <text x={cx} y={cy+2} textAnchor="middle" dominantBaseline="central"
+        style={{ fontSize: '22px', userSelect: 'none' }}>✝️</text>
+      <text x={cx} y={cy+42} textAnchor="middle"
         style={{ fontSize: '10px', fontWeight: '800', fill: '#78350f',
           fontFamily: 'Lora, serif', userSelect: 'none' }}>
-        EL CIELO
+        JESÚS TE ESPERA
       </text>
-      <text x={x} y={y + 61} textAnchor="middle"
-        style={{ fontSize: '9px', fill: '#92400e', fontFamily: 'Nunito, sans-serif', userSelect: 'none' }}>
-        Con Jesús
-      </text>
+      {[0,60,120,180,240,300].map((a,i) => (
+        <circle key={i}
+          cx={cx + Math.cos(a*Math.PI/180)*44}
+          cy={cy + Math.sin(a*Math.PI/180)*44}
+          r={3} fill="#f59e0b" opacity={0.7}/>
+      ))}
     </g>
   )
 }
 
 function HomeNode() {
-  const { x, y } = NODE_POS.home
+  const cx = VB_W / 2, cy = VB_H - 90
   return (
     <g>
-      <circle cx={x} cy={y} r={34} fill="#fef3c7" stroke="#d97706" strokeWidth={2.5} />
-      <foreignObject x={x - 20} y={y - 22} width={40} height={40}>
-        <div xmlns="http://www.w3.org/1999/xhtml"
-          style={{ fontSize: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: '100%', height: '100%' }}>
-          🏠
-        </div>
-      </foreignObject>
-      <text x={x} y={y + 48} textAnchor="middle"
-        style={{ fontSize: '10px', fontWeight: '700', fill: '#78350f',
-          fontFamily: 'Lora, serif', userSelect: 'none' }}>
+      <circle cx={cx+2} cy={cy+4} r={30} fill="rgba(0,0,0,0.18)"/>
+      <circle cx={cx} cy={cy} r={30} fill="#fef3c7" stroke="#d97706" strokeWidth={3}/>
+      <text x={cx} y={cy+2} textAnchor="middle" dominantBaseline="central"
+        style={{ fontSize: '22px', userSelect: 'none' }}>🏠</text>
+      <text x={cx} y={cy+46} textAnchor="middle"
+        style={{ fontSize: '9px', fontWeight: '700', fill: '#78350f',
+          fontFamily: 'Nunito, sans-serif', userSelect: 'none' }}>
         MI CASA
-      </text>
-      <text x={x} y={y + 61} textAnchor="middle"
-        style={{ fontSize: '9px', fill: '#92400e', fontFamily: 'Nunito, sans-serif', userSelect: 'none' }}>
-        El viaje comienza aquí
       </text>
     </g>
   )
 }
 
-// Background decoration elements (clouds, stars)
-function MapBackground() {
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+function Avatar({ pos }) {
   return (
-    <>
-      {/* Sky gradient via rect */}
-      <defs>
-        <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.25" />
-          <stop offset="35%" stopColor="#bae6fd" stopOpacity="0.15" />
-          <stop offset="65%" stopColor="#fef9c3" stopOpacity="0.1" />
-          <stop offset="100%" stopColor="#fef3c7" stopOpacity="0.2" />
-        </linearGradient>
-        <linearGradient id="pathGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#f59e0b" />
-          <stop offset="100%" stopColor="#22c55e" />
-        </linearGradient>
-      </defs>
-      <rect x={0} y={0} width={VB_W} height={VB_H} fill="url(#skyGrad)" />
-
-      {/* Stars near heaven */}
-      {[[155, 50], [220, 40], [140, 120], [240, 110], [170, 150]].map(([x, y], i) => (
-        <text key={i} x={x} y={y} style={{ fontSize: '12px', fill: '#f59e0b', opacity: 0.6, userSelect: 'none' }}>✦</text>
-      ))}
-
-      {/* Clouds */}
-      {[
-        [30, 190, 0.7],
-        [280, 160, 0.6],
-        [20, 680, 0.5],
-        [290, 720, 0.55],
-        [40, 1200, 0.45],
-        [285, 1280, 0.4],
-        [25, 1780, 0.5],
-      ].map(([cx, cy, op], i) => (
-        <g key={i} opacity={op}>
-          <ellipse cx={cx + 14} cy={cy} rx={22} ry={12} fill="white" />
-          <ellipse cx={cx + 28} cy={cy - 6} rx={16} ry={10} fill="white" />
-          <ellipse cx={cx + 42} cy={cy} rx={18} ry={11} fill="white" />
-        </g>
-      ))}
-
-      {/* Bible verse banners */}
-      <rect x={55} y={390} width={265} height={26} rx={13} fill="#ecfdf5" opacity={0.7} />
-      <text x={187} y={407} textAnchor="middle"
-        style={{ fontSize: '8.5px', fill: '#166534', fontFamily: 'Lora, serif',
-          fontStyle: 'italic', userSelect: 'none' }}>
-        "Buscad primero el reino de Dios." — Mat 6:33
-      </text>
-
-      <rect x={55} y={950} width={265} height={26} rx={13} fill="#fffbeb" opacity={0.7} />
-      <text x={187} y={967} textAnchor="middle"
-        style={{ fontSize: '8.5px', fill: '#78350f', fontFamily: 'Lora, serif',
-          fontStyle: 'italic', userSelect: 'none' }}>
-        "Todo lo puedo en Cristo." — Fil 4:13
-      </text>
-
-      <rect x={55} y={1520} width={265} height={26} rx={13} fill="#fff1f2" opacity={0.7} />
-      <text x={187} y={1537} textAnchor="middle"
-        style={{ fontSize: '8.5px', fill: '#881337', fontFamily: 'Lora, serif',
-          fontStyle: 'italic', userSelect: 'none' }}>
-        "Yo soy el camino..." — Juan 14:6
-      </text>
-    </>
+    <motion.g
+      animate={{ y: [0, -7, 0] }}
+      transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+    >
+      {/* Shadow */}
+      <ellipse cx={pos.x} cy={pos.y + 8} rx={18} ry={6} fill="rgba(0,0,0,0.2)"/>
+      {/* Halo */}
+      <ellipse cx={pos.x} cy={pos.y - 52} rx={15} ry={4.5}
+        fill="none" stroke="#f59e0b" strokeWidth={2.5} opacity={0.8}/>
+      {/* Head */}
+      <circle cx={pos.x} cy={pos.y - 42} r={14} fill="#fbbf24" stroke="#d97706" strokeWidth={1.5}/>
+      {/* Eyes */}
+      <circle cx={pos.x - 5} cy={pos.y - 44} r={2.5} fill="#1e293b"/>
+      <circle cx={pos.x + 5} cy={pos.y - 44} r={2.5} fill="#1e293b"/>
+      {/* Gleam */}
+      <circle cx={pos.x - 4} cy={pos.y - 45.5} r={1} fill="white"/>
+      <circle cx={pos.x + 6} cy={pos.y - 45.5} r={1} fill="white"/>
+      {/* Smile */}
+      <path d={`M ${pos.x-5},${pos.y-38} Q ${pos.x},${pos.y-34} ${pos.x+5},${pos.y-38}`}
+        fill="none" stroke="#92400e" strokeWidth={1.8} strokeLinecap="round"/>
+      {/* Body */}
+      <ellipse cx={pos.x} cy={pos.y - 20} rx={11} ry={13} fill="#3b82f6" stroke="#1d4ed8" strokeWidth={1}/>
+      {/* Arms */}
+      <path d={`M ${pos.x-11},${pos.y-24} Q ${pos.x-22},${pos.y-18} ${pos.x-18},${pos.y-10}`}
+        fill="none" stroke="#fbbf24" strokeWidth={4} strokeLinecap="round"/>
+      <path d={`M ${pos.x+11},${pos.y-24} Q ${pos.x+22},${pos.y-18} ${pos.x+18},${pos.y-10}`}
+        fill="none" stroke="#fbbf24" strokeWidth={4} strokeLinecap="round"/>
+      {/* Legs */}
+      <path d={`M ${pos.x-5},${pos.y-8} L ${pos.x-8},${pos.y+8}`}
+        stroke="#1d4ed8" strokeWidth={4.5} strokeLinecap="round"/>
+      <path d={`M ${pos.x+5},${pos.y-8} L ${pos.x+8},${pos.y+8}`}
+        stroke="#1d4ed8" strokeWidth={4.5} strokeLinecap="round"/>
+    </motion.g>
   )
 }
 
+// ─── Day node ─────────────────────────────────────────────────────────────────
+function DayNode({ dayIdx, status, onClick }) {
+  const { x, y } = ALL_POS[dayIdx]
+  const { weekId, dayId } = toDayIds(dayIdx)
+  const isCompleted = status === 'completed'
+  const isCurrent   = status === 'current'
+  const isUnlocked  = status === 'unlocked'
+  const isLocked    = status === 'locked'
+  const isWeekEnd   = dayId === 7
+
+  const fill   = isCompleted ? '#22c55e' : isCurrent ? '#f59e0b' : isUnlocked ? '#f1f5f9' : '#9ca3af'
+  const stroke = isCompleted ? '#16a34a' : isCurrent ? '#b45309' : isUnlocked ? '#cbd5e1' : '#6b7280'
+  const shade  = isCompleted ? '#15803d' : isCurrent ? '#92400e' : isUnlocked ? '#94a3b8' : '#4b5563'
+  const hilite = isCompleted ? '#86efac' : isCurrent ? '#fde68a' : isUnlocked ? 'white' : '#d1d5db'
+
+  return (
+    <g onClick={!isLocked ? onClick : undefined}
+       style={{ cursor: isLocked ? 'default' : 'pointer' }}>
+
+      {/* Week badge border */}
+      {isWeekEnd && !isLocked && (
+        <circle cx={x} cy={y} r={R + 7}
+          fill="none" stroke="#f59e0b" strokeWidth={2.5} opacity={0.5}
+          strokeDasharray="6 3"
+        />
+      )}
+
+      {/* Pulse ring for current */}
+      {isCurrent && (
+        <circle cx={x} cy={y} r={R + 10} fill="#f59e0b" opacity={0.22}>
+          <animate attributeName="r" values={`${R+8};${R+18};${R+8}`} dur="2s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.22;0.05;0.22" dur="2s" repeatCount="indefinite"/>
+        </circle>
+      )}
+
+      {/* 3-D shadow */}
+      <circle cx={x + 2} cy={y + 5} r={R} fill={shade} opacity={0.5}/>
+
+      {/* Main circle */}
+      <circle cx={x} cy={y} r={R} fill={fill} stroke={stroke} strokeWidth={2.5}/>
+
+      {/* Highlight (top-left gleam) */}
+      <ellipse cx={x - 8} cy={y - 10} rx={10} ry={7} fill={hilite} opacity={0.4}/>
+
+      {/* Content */}
+      {isCompleted ? (
+        <text x={x} y={y + 1.5} textAnchor="middle" dominantBaseline="central"
+          style={{ fontSize: '20px', userSelect: 'none' }}>⭐</text>
+      ) : isCurrent ? (
+        <text x={x} y={y + 1.5} textAnchor="middle" dominantBaseline="central"
+          style={{ fontSize: '18px', userSelect: 'none' }}>▶️</text>
+      ) : isLocked ? (
+        <text x={x} y={y + 1.5} textAnchor="middle" dominantBaseline="central"
+          style={{ fontSize: '16px', userSelect: 'none' }}>🔒</text>
+      ) : (
+        <text x={x} y={y + 1.5} textAnchor="middle" dominantBaseline="central"
+          style={{ fontSize: '11px', fontWeight: '800', fill: '#475569',
+            fontFamily: 'Nunito, sans-serif', userSelect: 'none' }}>
+          {dayId}
+        </text>
+      )}
+
+      {/* Week-end medal badge */}
+      {isWeekEnd && isCompleted && (
+        <>
+          <circle cx={x + R - 2} cy={y - R + 2} r={11} fill="#f59e0b" stroke="white" strokeWidth={2}/>
+          <text x={x + R - 2} y={y - R + 3} textAnchor="middle" dominantBaseline="central"
+            style={{ fontSize: '10px', userSelect: 'none' }}>🏅</text>
+        </>
+      )}
+    </g>
+  )
+}
+
+// ─── Day bottom sheet ─────────────────────────────────────────────────────────
+function DaySheet({ dayIdx, onClose, onStart }) {
+  const { weekId, dayId } = toDayIds(dayIdx)
+  const content = getDayContent(weekId, dayId)
+  const week = MAP_WEEKS.find(w => w.id === weekId)
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key="overlay"
+        className="fixed inset-0 bg-black/40 z-40"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      />
+      <motion.div
+        key="sheet"
+        className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-white rounded-t-3xl z-50 px-5 pt-4 pb-8 shadow-warm-lg"
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+      >
+        {/* Drag handle */}
+        <div className="w-10 h-1.5 bg-gray-200 rounded-full mx-auto mb-4"/>
+
+        {/* Week/day chip */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-2xl">{week?.icon}</span>
+          <div>
+            <p className="font-body text-[10px] text-gray-400 uppercase tracking-wider font-bold">
+              Semana {weekId} · Día {dayId} de 7
+            </p>
+            <p className="font-display font-bold text-forest-700 text-base leading-tight">
+              {content?.title}
+            </p>
+          </div>
+          <button onClick={onClose} className="ml-auto p-1.5 text-gray-400">
+            <X size={18}/>
+          </button>
+        </div>
+
+        {/* Objective */}
+        {content?.objective && (
+          <div className="bg-forest-100 rounded-2xl px-4 py-2.5 mb-3">
+            <p className="font-body text-xs text-forest-500 font-bold uppercase tracking-wider mb-0.5">Objetivo</p>
+            <p className="font-body text-forest-700 text-sm leading-snug">{content.objective}</p>
+          </div>
+        )}
+
+        {/* Verse */}
+        {content?.verse && (
+          <div className="bg-gold-100 rounded-2xl px-4 py-2.5 mb-4">
+            <p className="font-body text-xs text-gold-600 font-bold uppercase tracking-wider mb-0.5">📖 Versículo</p>
+            <p className="font-display italic text-gold-800 text-sm leading-snug">{content.verse}</p>
+          </div>
+        )}
+
+        {/* Question */}
+        {content?.question && (
+          <p className="font-body text-xs text-gray-500 mb-4 italic px-1">💬 {content.question}</p>
+        )}
+
+        {/* CTA */}
+        <motion.button
+          onClick={onStart}
+          className="w-full bg-forest-500 text-white font-body font-bold py-4 rounded-2xl shadow-green text-base flex items-center justify-center gap-2"
+          whileTap={{ scale: 0.97 }}
+        >
+          ▶ Comenzar este día <ChevronRight size={18}/>
+        </motion.button>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
 export default function PathMap() {
   const navigate = useNavigate()
   const {
-    started, childName, mapCurrentWeek, mapCurrentDay,
-    completedDays, earnedMedals, streak, getWeekDayCount,
-    getDayStatus, getMapProgress, startProgram,
+    started, childName,
+    mapCurrentWeek, mapCurrentDay,
+    earnedMedals, earnedStickers, streak,
+    getDayStatus, getMapProgress, getTotalCompletedDays,
   } = useApp()
 
-  const [selectedWeek, setSelectedWeek] = useState(null)
-  const [showDaySheet, setShowDaySheet] = useState(false)
-  const mapRef = useRef(null)
-
-  // Auto-scroll to current week on mount
-  useEffect(() => {
-    if (!mapRef.current) return
-    const pos = NODE_POS[mapCurrentWeek]
-    if (!pos) return
-    const ratio = pos.y / VB_H
-    const totalHeight = mapRef.current.scrollHeight
-    const offset = ratio * totalHeight - 200
-    mapRef.current.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' })
-  }, [mapCurrentWeek])
-
-  const weekStatus = (id) => {
-    if (earnedMedals.includes(id)) return 'completed'
-    if (id === mapCurrentWeek) return 'current'
-    if (id < mapCurrentWeek) return 'unlocked'
-    return 'locked'
-  }
-
-  const handleWeekTap = (weekId) => {
-    const status = weekStatus(weekId)
-    if (status === 'locked') return
-    setSelectedWeek(weekId)
-    setShowDaySheet(true)
-  }
-
-  const handleDayTap = (weekId, dayId) => {
-    const status = getDayStatus(weekId, dayId)
-    if (status === 'locked') return
-    setShowDaySheet(false)
-    navigate(`/dia/${weekId}/${dayId}`)
-  }
+  const [selectedDay, setSelectedDay] = useState(null)
+  const scrollRef = useRef(null)
 
   const { done, total, percent } = getMapProgress()
 
-  const selectedWeekData = selectedWeek
-    ? MAP_WEEKS.find(w => w.id === selectedWeek)
-    : null
+  // Current day index (0-based)
+  const currentIdx = (mapCurrentWeek - 1) * 7 + (mapCurrentDay - 1)
+  const currentPos = ALL_POS[Math.min(currentIdx, 69)]
+
+  // Scroll to current position on mount
+  useEffect(() => {
+    if (!scrollRef.current || !currentPos) return
+    const svgEl = scrollRef.current.querySelector('svg')
+    if (!svgEl) return
+    const rendered = svgEl.getBoundingClientRect()
+    const ratio = currentPos.y / VB_H
+    const pxY = ratio * rendered.height
+    const halfVP = window.innerHeight * 0.45
+    scrollRef.current.scrollTo({ top: pxY - halfVP, behavior: 'smooth' })
+  }, [started])
+
+  const openDay = (idx) => setSelectedDay(idx)
+  const closeSheet = () => setSelectedDay(null)
+
+  const startDay = () => {
+    if (selectedDay == null) return
+    const { weekId, dayId } = toDayIds(selectedDay)
+    closeSheet()
+    navigate(`/dia/${weekId}/${dayId}`)
+  }
 
   if (!started) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 py-10 text-center">
-        <div className="text-6xl mb-4">🗺️</div>
-        <h2 className="font-display text-2xl font-bold text-forest-700 mb-2">
-          Tu Camino al Cielo
-        </h2>
-        <p className="font-body text-forest-500 text-sm mb-6">
-          Comienza el programa para desbloquear tu mapa espiritual de 10 semanas.
+      <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
+        <motion.div
+          animate={{ y: [0, -10, 0] }}
+          transition={{ repeat: Infinity, duration: 3 }}
+          className="text-7xl mb-5"
+        >🗺️</motion.div>
+        <h2 className="font-display text-2xl font-bold text-forest-700 mb-2">Tu Camino al Cielo</h2>
+        <p className="font-body text-forest-500 text-sm mb-7 max-w-xs">
+          Comienza el programa para desbloquear tu mapa espiritual de 10 semanas, 70 días.
         </p>
-        <button
+        <motion.button
           onClick={() => navigate('/')}
-          className="bg-forest-500 text-white font-body font-bold px-6 py-3 rounded-2xl shadow-green"
+          className="bg-forest-500 text-white font-body font-bold px-8 py-3.5 rounded-2xl shadow-green text-base"
+          whileTap={{ scale: 0.95 }}
         >
           Comenzar el programa →
-        </button>
+        </motion.button>
       </div>
     )
   }
 
   return (
-    <div className="relative flex flex-col">
-      {/* Sticky "Continuar" bar */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-cream-200 px-4 py-2.5 flex items-center gap-3">
-        <div className="flex-1">
-          <p className="font-body text-xs text-forest-500">Tu progreso</p>
-          <p className="font-display font-bold text-forest-700 text-sm">
-            {childName ? `${childName} · ` : ''}Semana {mapCurrentWeek}, Día {mapCurrentDay}
-          </p>
-        </div>
-        <div className="text-center px-3">
-          <p className="font-body text-xs text-gold-600 font-bold">{done}/{total}</p>
-          <p className="font-body text-[10px] text-gold-500">días</p>
-        </div>
-        {streak > 0 && (
-          <div className="text-center">
-            <p className="text-lg">🔥</p>
-            <p className="font-body text-[10px] text-orange-500 font-bold">{streak}</p>
+    <div className="flex flex-col h-full min-h-0">
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex-shrink-0 bg-white/95 backdrop-blur-sm border-b border-cream-200 px-4 py-2 z-10">
+        <div className="flex items-center gap-2">
+          {/* Avatar emoji + name */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-2xl bg-gold-100 flex items-center justify-center text-xl flex-shrink-0">
+              {childName ? childName[0].toUpperCase() : '✨'}
+            </div>
+            <div className="min-w-0">
+              <p className="font-display font-bold text-forest-800 text-sm truncate leading-tight">
+                {childName || 'Mi camino'}
+              </p>
+              <p className="font-body text-[10px] text-forest-500">
+                Sem. {mapCurrentWeek} · Día {mapCurrentDay}
+              </p>
+            </div>
           </div>
-        )}
-        <button
-          onClick={() => navigate(`/dia/${mapCurrentWeek}/${mapCurrentDay}`)}
-          className="flex items-center gap-1 bg-forest-500 text-white font-body font-bold text-xs px-3 py-2 rounded-xl shadow-green active:scale-95 transition-transform"
-        >
-          Continuar <ChevronRight size={14} />
-        </button>
+
+          {/* Stats row */}
+          <div className="flex items-center gap-2">
+            {streak > 0 && (
+              <div className="flex flex-col items-center bg-orange-50 border border-orange-200 rounded-xl px-2 py-0.5">
+                <Flame size={12} className="text-orange-500"/>
+                <span className="font-body text-[10px] font-bold text-orange-600">{streak}</span>
+              </div>
+            )}
+            <div className="flex flex-col items-center bg-gold-100 border border-gold-200 rounded-xl px-2 py-0.5">
+              <Star size={12} className="text-gold-500"/>
+              <span className="font-body text-[10px] font-bold text-gold-600">{earnedStickers.length}</span>
+            </div>
+            <div className="flex flex-col items-center bg-forest-100 border border-forest-200 rounded-xl px-2 py-0.5">
+              <span className="text-[10px]">📊</span>
+              <span className="font-body text-[10px] font-bold text-forest-700">{done}/{total}</span>
+            </div>
+
+            <motion.button
+              onClick={() => navigate(`/dia/${mapCurrentWeek}/${mapCurrentDay}`)}
+              className="flex items-center gap-1 bg-forest-500 text-white font-body font-bold text-xs px-3 py-2 rounded-xl shadow-green"
+              whileTap={{ scale: 0.95 }}
+            >
+              ▶ Continuar
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-1.5 flex items-center gap-2">
+          <div className="flex-1 h-2 bg-green-100 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-forest-400 to-gold-400 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${percent}%` }}
+              transition={{ duration: 1.2, ease: 'easeOut' }}
+            />
+          </div>
+          <span className="font-body text-[10px] text-forest-600 font-bold flex-shrink-0">{percent}%</span>
+        </div>
       </div>
 
-      {/* SVG Map */}
-      <div ref={mapRef} className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+      {/* ── Scrollable SVG map ─────────────────────────────────────────────── */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
         <svg
           viewBox={`0 0 ${VB_W} ${VB_H}`}
-          style={{ width: '100%', height: 'auto', display: 'block', background: 'linear-gradient(to bottom, #e0f2fe 0%, #f0fdf4 40%, #fffbeb 70%, #fef3c7 100%)' }}
+          width="100%"
+          style={{ display: 'block', background: 'linear-gradient(to bottom, #bfdbfe 0%, #d1fae5 30%, #fef9c3 65%, #fef3c7 100%)' }}
           xmlns="http://www.w3.org/2000/svg"
+          xmlnsXlink="http://www.w3.org/1999/xlink"
         >
-          <MapBackground />
+          <MapBackground/>
+          <Track completedCount={done}/>
 
-          {/* Background path (gray) */}
-          <path d={WINDING_PATH} fill="none" stroke="#e5e7eb" strokeWidth={12} strokeLinecap="round" />
+          {/* Heaven */}
+          <HeavenNode/>
 
-          {/* Progress path (green/gold gradient) — filled up to current position */}
-          {percent > 0 && (
-            <path d={WINDING_PATH} fill="none" stroke="url(#pathGrad)"
-              strokeWidth={8} strokeLinecap="round"
-              strokeDasharray="2000"
-              strokeDashoffset={Math.round(2000 * (1 - percent / 100))}
-              opacity={0.8}
-            />
-          )}
+          {/* Day nodes (rendered bottom to top, so lower days appear in front) */}
+          {Array.from({ length: 70 }, (_, i) => 69 - i).map(i => {
+            const { weekId, dayId } = toDayIds(i)
+            const status = getDayStatus(weekId, dayId)
+            return (
+              <DayNode
+                key={i}
+                dayIdx={i}
+                status={status}
+                onClick={() => openDay(i)}
+              />
+            )
+          })}
 
-          {/* Heaven and Home special nodes */}
-          <HeavenNode />
-          <HomeNode />
+          {/* Avatar on current day */}
+          {currentPos && <Avatar pos={currentPos}/>}
 
-          {/* Week nodes */}
-          {MAP_WEEKS.map(week => (
-            <WeekBadge
-              key={week.id}
-              week={week}
-              status={weekStatus(week.id)}
-              daysDone={getWeekDayCount(week.id)}
-              onClick={() => handleWeekTap(week.id)}
-            />
-          ))}
+          {/* Home */}
+          <HomeNode/>
         </svg>
 
-        {/* Extra padding at bottom */}
-        <div className="h-8" />
+        {/* Extra bottom padding */}
+        <div className="h-6 bg-amber-50"/>
       </div>
 
-      {/* Bottom sheet: Week day picker */}
-      {showDaySheet && selectedWeekData && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/40 z-30"
-            onClick={() => setShowDaySheet(false)}
-          />
-          <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-white rounded-t-3xl z-40 p-5 pb-8 shadow-warm-lg animate-slide-up">
-            {/* Handle */}
-            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
-
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">{selectedWeekData.icon}</span>
-              <div className="flex-1">
-                <p className="font-body text-xs text-forest-400">Semana {selectedWeekData.id}</p>
-                <p className="font-display font-bold text-forest-700 text-base leading-tight">
-                  {selectedWeekData.name}
-                </p>
-              </div>
-              {earnedMedals.includes(selectedWeek) && (
-                <span className="text-2xl">🏅</span>
-              )}
-              <button
-                onClick={() => setShowDaySheet(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-600"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Progress bar */}
-            <div className="mb-4">
-              <div className="flex justify-between mb-1">
-                <span className="font-body text-xs text-forest-500">
-                  {getWeekDayCount(selectedWeek)}/7 días completados
-                </span>
-                {earnedMedals.includes(selectedWeek) && (
-                  <span className="font-body text-xs text-gold-600 font-bold">¡Semana completa! 🌟</span>
-                )}
-              </div>
-              <div className="h-2.5 bg-green-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-forest-400 to-gold-400 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.round((getWeekDayCount(selectedWeek) / 7) * 100)}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Day grid */}
-            <div className="grid grid-cols-7 gap-2 mb-5">
-              {Array.from({ length: 7 }, (_, i) => {
-                const dayId = i + 1
-                const status = getDayStatus(selectedWeek, dayId)
-                const dayContent = getDayContent(selectedWeek, dayId)
-                const isLocked = status === 'locked'
-                const isCompleted = status === 'completed'
-                const isCurrent = status === 'current'
-
-                return (
-                  <button
-                    key={dayId}
-                    onClick={() => handleDayTap(selectedWeek, dayId)}
-                    disabled={isLocked}
-                    className={`
-                      flex flex-col items-center gap-1 py-2 rounded-2xl border-2 transition-all active:scale-95
-                      ${isCompleted ? 'bg-gold-100 border-gold-300' :
-                        isCurrent ? 'bg-forest-100 border-forest-300' :
-                        isLocked ? 'bg-gray-50 border-gray-200 opacity-50' :
-                        'bg-cream-100 border-cream-300'}
-                    `}
-                  >
-                    <span className="text-[10px] font-body font-bold text-gray-500">D{dayId}</span>
-                    {isCompleted ? (
-                      <span className="text-sm">⭐</span>
-                    ) : isCurrent ? (
-                      <span className="text-sm">▶️</span>
-                    ) : isLocked ? (
-                      <span className="text-sm">🔒</span>
-                    ) : (
-                      <span className="text-sm">○</span>
-                    )}
-                    {dayContent && (
-                      <span className="text-[8px] font-body text-gray-400 text-center leading-tight px-0.5 line-clamp-2">
-                        {dayContent.title.split(' ').slice(0, 2).join(' ')}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* CTA Button */}
-            {selectedWeek === mapCurrentWeek ? (
-              <button
-                onClick={() => {
-                  setShowDaySheet(false)
-                  navigate(`/dia/${mapCurrentWeek}/${mapCurrentDay}`)
-                }}
-                className="w-full bg-forest-500 text-white font-body font-bold py-3.5 rounded-2xl shadow-green text-base active:scale-95 transition-transform"
-              >
-                ▶ Continuar Día {mapCurrentDay}
-              </button>
-            ) : earnedMedals.includes(selectedWeek) ? (
-              <button
-                onClick={() => {
-                  setShowDaySheet(false)
-                  navigate(`/dia/${selectedWeek}/1`)
-                }}
-                className="w-full bg-gold-400 text-white font-body font-bold py-3.5 rounded-2xl shadow-warm text-base active:scale-95 transition-transform"
-              >
-                🔁 Repasar esta semana
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  setShowDaySheet(false)
-                  navigate(`/dia/${selectedWeek}/1`)
-                }}
-                className="w-full bg-sky-500 text-white font-body font-bold py-3.5 rounded-2xl text-base active:scale-95 transition-transform"
-              >
-                ▶ Comenzar Semana {selectedWeek}
-              </button>
-            )}
-          </div>
-        </>
+      {/* ── Day detail bottom sheet ────────────────────────────────────────── */}
+      {selectedDay !== null && (
+        <DaySheet
+          dayIdx={selectedDay}
+          onClose={closeSheet}
+          onStart={startDay}
+        />
       )}
     </div>
   )
