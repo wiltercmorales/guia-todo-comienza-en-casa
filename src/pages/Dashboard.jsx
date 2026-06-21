@@ -35,6 +35,21 @@ export default function Dashboard() {
         </h1>
       </div>
 
+      {/* Camino al Cielo CTA */}
+      <button
+        onClick={() => navigate('/mapa')}
+        className="w-full bg-gradient-to-r from-sky-400 to-forest-500 text-white rounded-4xl p-4 flex items-center gap-4 shadow-green-lg active:scale-95 transition-transform"
+      >
+        <span className="text-4xl">🗺️</span>
+        <div className="flex-1 text-left">
+          <p className="font-display font-bold text-lg leading-tight">Mi Camino al Cielo</p>
+          <p className="font-body text-white/80 text-xs mt-0.5">
+            Ver tu progreso en el mapa gamificado
+          </p>
+        </div>
+        <span className="text-2xl">▶</span>
+      </button>
+
       {/* Overall progress card */}
       <div className="bg-forest-gradient rounded-4xl p-5 text-white shadow-green-lg">
         <div className="flex items-center justify-between">

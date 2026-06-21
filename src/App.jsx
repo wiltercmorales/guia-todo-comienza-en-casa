@@ -11,6 +11,9 @@ import Passport from './pages/Passport'
 import Challenges from './pages/Challenges'
 import Parents from './pages/Parents'
 import Closing from './pages/Closing'
+import PathMap from './pages/PathMap'
+import DailyExperience from './pages/DailyExperience'
+import MyProgress from './pages/MyProgress'
 
 export default function App() {
   return (
@@ -19,6 +22,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route element={<Layout />}>
+            {/* New gamified routes */}
+            <Route path="/mapa" element={<PathMap />} />
+            <Route path="/dia/:weekId/:dayId" element={<DailyExperience />} />
+            <Route path="/mi-avance" element={<MyProgress />} />
+            {/* Legacy routes (preserved) */}
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/rutina" element={<DailyRoutine />} />
             <Route path="/semanas" element={<WeeklyPlan />} />

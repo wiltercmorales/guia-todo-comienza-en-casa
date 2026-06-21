@@ -13,13 +13,13 @@ export default function Home() {
     if (!started) {
       setShowForm(true)
     } else {
-      navigate('/dashboard')
+      navigate('/mapa')
     }
   }
 
   const handleConfirm = () => {
     startProgram(name.trim())
-    navigate('/dashboard')
+    navigate('/mapa')
   }
 
   return (
