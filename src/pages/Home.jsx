@@ -1,24 +1,30 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { useApp } from '../context/AppContext'
 import { ArrowRight, BookOpen, Star, Heart, Users } from 'lucide-react'
+import { playClick, playBell } from '../utils/audio'
 
 export default function Home() {
   const navigate = useNavigate()
   const { started, startProgram } = useApp()
   const [name, setName] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [selectedAvatar, setSelectedAvatar] = useState('nino')
 
   const handleStart = () => {
     if (!started) {
       setShowForm(true)
+      playClick()
     } else {
+      playBell()
       navigate('/mapa')
     }
   }
 
   const handleConfirm = () => {
-    startProgram(name.trim())
+    playBell()
+    startProgram(name.trim(), selectedAvatar)
     navigate('/mapa')
   }
 
@@ -84,29 +90,71 @@ export default function Home() {
           </button>
         ) : (
           <div className="w-full max-w-sm space-y-3 animate-scale-in">
-            <div className="bg-white rounded-3xl p-5 shadow-warm">
-              <p className="font-display text-forest-700 font-semibold mb-3 text-center">
-                ¿Cómo se llama tu pequeño?
+            <div className="bg-white rounded-3xl p-5 shadow-warm border-2 border-cream-200">
+              <p className="font-display text-forest-800 font-bold mb-3 text-center text-sm md:text-base">
+                ¿Cómo te llamas?
               </p>
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="Nombre del niño (opcional)"
-                className="w-full bg-cream-100 rounded-2xl px-4 py-3 font-body text-forest-700 placeholder-forest-300 border-2 border-cream-300 focus:border-forest-400 focus:outline-none mb-3"
+                placeholder="Tu nombre aquí..."
+                className="w-full bg-cream-50 rounded-2xl px-4 py-3 font-body text-forest-700 placeholder-forest-300 border-2 border-cream-200 focus:border-forest-400 focus:outline-none mb-4 text-center font-bold text-sm"
                 maxLength={30}
                 autoFocus
                 onKeyDown={e => e.key === 'Enter' && handleConfirm()}
               />
+
+              <p className="font-display text-forest-800 font-bold mb-3.5 text-center text-xs md:text-sm">
+                Elige tu personaje:
+              </p>
+              
+              {/* Character selection buttons */}
+              <div className="flex gap-4 justify-center mb-5">
+                {[
+                  { id: 'nino', name: 'Niño', path: './assets/avatar/nino.png' },
+                  { id: 'nina', name: 'Niña', path: './assets/avatar/nina.png' },
+                ].map((char) => {
+                  const isSel = selectedAvatar === char.id
+                  return (
+                    <motion.button
+                      key={char.id}
+                      type="button"
+                      whileHover={{ scale: 1.06 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        setSelectedAvatar(char.id)
+                        playClick()
+                      }}
+                      className={`
+                        flex-1 flex flex-col items-center p-3 rounded-2xl border-2 transition-all aspect-square justify-center relative
+                        ${isSel 
+                          ? 'bg-gold-50 border-gold-400 shadow-md' 
+                          : 'bg-cream-50 border-cream-200'}
+                      `}
+                    >
+                      <img src={char.path} alt={char.name} className="w-14 h-14 object-contain mb-1" />
+                      <span className="font-body text-xs font-black text-forest-700">{char.name}</span>
+                      
+                      {isSel && (
+                        <div className="absolute -top-1.5 -right-1.5 bg-green-500 text-white rounded-full w-5 h-5 border border-white flex items-center justify-center text-[10px] font-bold">
+                          ✓
+                        </div>
+                      )}
+                    </motion.button>
+                  )
+                })}
+              </div>
+
               <button
                 onClick={handleConfirm}
-                className="w-full bg-forest-gradient text-white font-body font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-green active:scale-95 transition-all"
+                className="w-full bg-forest-gradient text-white font-body font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-green active:scale-95 transition-all text-base border border-forest-400"
               >
                 ¡Comenzamos! <ArrowRight size={18} />
               </button>
               <button
                 onClick={() => setShowForm(false)}
-                className="w-full mt-2 text-forest-400 font-body text-sm py-2"
+                className="w-full mt-2 text-forest-400 font-body text-xs py-2 hover:text-forest-600 transition-colors font-bold"
               >
                 Volver
               </button>

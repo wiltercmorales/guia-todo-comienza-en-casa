@@ -21,6 +21,7 @@ const DEFAULT_STATE = {
   passportStamps: [],
   completedChallenges: [],
   childName: '',
+  childAvatar: 'nino', // New field for premium character avatar
   // New gamification fields
   mapCurrentWeek: 1,  // 1-10
   mapCurrentDay: 1,   // 1-7
@@ -47,11 +48,14 @@ export function AppProvider({ children }) {
 
   // ── Legacy actions (preserved) ──────────────────────────────────────────────
 
-  const startProgram = (name = '') =>
-    setState(s => ({ ...s, started: true, childName: name || s.childName }))
+  const startProgram = (name = '', avatar = 'nino') =>
+    setState(s => ({ ...s, started: true, childName: name || s.childName, childAvatar: avatar || s.childAvatar }))
 
   const setChildName = (name) =>
     setState(s => ({ ...s, childName: name }))
+
+  const setChildAvatar = (avatar) =>
+    setState(s => ({ ...s, childAvatar: avatar }))
 
   const completeWeek = (weekId) =>
     setState(s => ({
@@ -251,6 +255,7 @@ export function AppProvider({ children }) {
       getTotalStamps,
       resetProgress,
       getToday,
+      setChildAvatar,
       // New gamification
       completeDay,
       saveDayResponse,

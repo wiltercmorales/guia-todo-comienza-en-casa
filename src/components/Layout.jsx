@@ -87,8 +87,8 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-cream-100 flex flex-col max-w-2xl mx-auto">
 
-      {/* Top bar — hidden on map (PathMap has its own header) */}
-      {!isMapPage && (
+      {/* Top bar — hidden on map, day, and passport (they have their own headers) */}
+      {!isMapPage && !isDayPage && location.pathname !== '/pasaporte' && (
         <header className="bg-white/90 backdrop-blur-sm border-b border-cream-300 px-4 py-3
           flex items-center gap-3 sticky top-0 z-20">
           {showBack ? (
