@@ -1,25 +1,27 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
-import { X, ChevronRight } from 'lucide-react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { X, ChevronRight, Trophy } from 'lucide-react'
+import confetti from 'canvas-confetti'
 import { useApp } from '../context/AppContext'
 import { getDayContent } from '../data/dailyContent'
 import { getAvatarPath } from '../data/assets'
+import { playFanfare } from '../utils/audio'
 import Header from '../components/Header'
 import HeavenlyPath, { getDayNodePos } from '../components/HeavenlyPath'
 import ProgressBar from '../components/ProgressBar'
 
 const STATIONS = [
-  { weekId: 1,  x: 158, y: 2460, icon: '🌱', label: 'Mi Casa',       color: '#f59e0b', dark: '#92400e', fill: '#fef3c7' },
-  { weekId: 2,  x: 232, y: 2240, icon: '🙏', label: 'El Jardín',     color: '#22c55e', dark: '#14532d', fill: '#dcfce7' },
-  { weekId: 3,  x: 152, y: 2020, icon: '📖', label: 'La Biblia',     color: '#6366f1', dark: '#312e81', fill: '#ede9fe' },
-  { weekId: 4,  x: 238, y: 1800, icon: '😊', label: 'Oración',       color: '#f43f5e', dark: '#881337', fill: '#ffe4e6' },
-  { weekId: 5,  x: 150, y: 1580, icon: '🎁', label: 'Compartir',     color: '#f97316', dark: '#7c2d12', fill: '#ffedd5' },
-  { weekId: 6,  x: 240, y: 1360, icon: '👨‍👩‍👧', label: 'Familia',       color: '#14b8a6', dark: '#134e4a', fill: '#ccfbf1' },
-  { weekId: 7,  x: 148, y: 1140, icon: '🌿', label: 'Discípulo',     color: '#a855f7', dark: '#581c87', fill: '#f3e8ff' },
-  { weekId: 8,  x: 242, y: 920,  icon: '✨', label: 'Identidad',     color: '#ef4444', dark: '#7f1d1d', fill: '#fee2e2' },
-  { weekId: 9,  x: 146, y: 700,  icon: '💪', label: 'Perseverancia', color: '#0ea5e9', dark: '#0c4a6e', fill: '#e0f2fe' },
-  { weekId: 10, x: 195, y: 440,  icon: '🌟', label: 'Con Jesús',     color: '#f59e0b', dark: '#78350f', fill: '#fef9c3' },
+  { weekId: 2,  x: 158, y: 2460, icon: '🎁', label: 'El Regalo',     color: '#f59e0b', dark: '#92400e', fill: '#fef3c7' },
+  { weekId: 3,  x: 232, y: 2240, icon: '🙏', label: 'Adoración',     color: '#22c55e', dark: '#14532d', fill: '#dcfce7' },
+  { weekId: 4,  x: 152, y: 2020, icon: '🛡️', label: 'Cuidado',      color: '#6366f1', dark: '#312e81', fill: '#ede9fe' },
+  { weekId: 5,  x: 238, y: 1800, icon: '🏠', label: 'Nazaret',      color: '#f43f5e', dark: '#881337', fill: '#ffe4e6' },
+  { weekId: 6,  x: 150, y: 1580, icon: '💧', label: 'El Jordán',     color: '#f97316', dark: '#7c2d12', fill: '#ffedd5' },
+  { weekId: 7,  x: 240, y: 1360, icon: '🏆', label: 'El Desierto',   color: '#14b8a6', dark: '#134e4a', fill: '#ccfbf1' },
+  { weekId: 8,  x: 148, y: 1140, icon: '👣', label: 'Seguidores',    color: '#a855f7', dark: '#581c87', fill: '#f3e8ff' },
+  { weekId: 9,  x: 242, y: 920,  icon: '🍇', label: 'Caná',          color: '#ef4444', dark: '#7f1d1d', fill: '#fee2e2' },
+  { weekId: 10, x: 146, y: 700,  icon: '🍞', label: 'Multiplicación',color: '#0ea5e9', dark: '#0c4a6e', fill: '#e0f2fe' },
+  { weekId: 11, x: 195, y: 440,  icon: '🌿', label: 'Discípulos',    color: '#f59e0b', dark: '#78350f', fill: '#fef9c3' },
 ]
 
 function getStation(weekId) {
@@ -45,10 +47,13 @@ function DaySheet({ weekId, dayId, status, onClose, onStart }) {
         onClick={onClose}
       />
       
-      {/* Slide up panel */}
+      {/* Positioning wrapper: a plain full-viewport flex box handles the
+          centering (robust — no translate/calc arithmetic to get wrong),
+          the inner motion.div only handles its own slide-up animation. */}
+      <div className="fixed inset-0 z-50 flex flex-col justify-end items-center pointer-events-none lg:pl-64">
       <motion.div
         key="sheet"
-        className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-white rounded-t-[2.5rem] border-t-4 border-forest-300 z-50 px-5 pt-4 pb-8 shadow-warm-lg"
+        className="pointer-events-auto w-full max-w-2xl bg-white rounded-t-[2.5rem] border-t-4 border-forest-300 px-5 pt-4 pb-8 shadow-warm-lg"
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
@@ -132,12 +137,86 @@ function DaySheet({ weekId, dayId, status, onClose, onStart }) {
           <ChevronRight size={18} />
         </motion.button>
       </motion.div>
+      </div>
+    </AnimatePresence>
+  )
+}
+
+function UnitTransitionBanner({ completedWeekId, nextWeekId, onClose }) {
+  const completedStation = getStation(completedWeekId)
+  const nextStation = completedWeekId < 11 ? getStation(nextWeekId) : null
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] bg-slate-900/65 backdrop-blur-sm flex items-center justify-center p-4 lg:pl-64"
+      >
+        <motion.div
+          initial={{ scale: 0.85, y: 40, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          exit={{ scale: 0.85, y: 40, opacity: 0 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+          className="relative bg-white border-4 border-gold-400 rounded-[2.5rem] p-6 max-w-sm w-full text-center shadow-warm-lg flex flex-col items-center gap-4"
+        >
+          <div
+            className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl shadow-md border-2 -mt-14 bg-white"
+            style={{ borderColor: completedStation?.color || '#F0B823' }}
+          >
+            {completedStation?.icon || '🏅'}
+          </div>
+
+          <div>
+            <p className="font-body text-[11px] font-black text-gold-600 uppercase tracking-widest">
+              ¡Etapa completada!
+            </p>
+            <h2 className="font-display font-black text-forest-800 text-xl leading-tight mt-1">
+              {completedStation?.label || `Semana ${completedWeekId}`}
+            </h2>
+          </div>
+
+          {nextStation ? (
+            <div className="w-full bg-cream-100 border-2 border-cream-200 rounded-3xl p-4 flex items-center gap-3">
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 border-2"
+                style={{ backgroundColor: nextStation.fill, borderColor: nextStation.color }}
+              >
+                {nextStation.icon}
+              </div>
+              <div className="text-left min-w-0">
+                <p className="font-body text-[9px] text-forest-400 font-black uppercase tracking-wider">Nueva etapa desbloqueada</p>
+                <p className="font-display font-black text-forest-800 text-sm truncate">{nextStation.label}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="w-full bg-gold-50 border-2 border-gold-200 rounded-3xl p-4 flex items-center gap-3">
+              <Trophy className="text-gold-500 flex-shrink-0" size={28} />
+              <p className="font-body font-black text-gold-700 text-sm text-left leading-snug">
+                ¡Completaste todo el Camino al Cielo!
+              </p>
+            </div>
+          )}
+
+          <div className="btn-3d-wrap w-full h-14 mt-1">
+            <div className="btn-3d-shadow bg-green-700" />
+            <button
+              onClick={onClose}
+              className="btn-3d-front w-full h-full bg-forest-gradient text-white font-body font-black py-4 border border-forest-400 text-base flex items-center justify-center gap-2"
+            >
+              ¡Seguir el camino! <ChevronRight size={18} />
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
     </AnimatePresence>
   )
 }
 
 export default function PathMap() {
   const navigate = useNavigate()
+  const location = useLocation()
   const {
     started,
     childName,
@@ -150,26 +229,46 @@ export default function PathMap() {
   } = useApp()
 
   const [selected, setSelected] = useState(null) // { weekId, dayId }
+  const [unitBanner, setUnitBanner] = useState(null) // { completedWeekId }
   const scrollRef = useRef(null)
+
+  // Show a celebration banner once, right after finishing an entire week (unit transition)
+  useEffect(() => {
+    if (location.state?.unitCompleted) {
+      const completedWeekId = location.state.unitCompleted
+      setUnitBanner({ completedWeekId })
+      playFanfare()
+      confetti({ particleCount: 200, spread: 100, origin: { y: 0.35 } })
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { done, total, percent } = getMapProgress()
   const avatarPath = getAvatarPath(childAvatar)
 
-  // Scroll to active day node on mount
+  // Land on the current day node the instant the map opens — measured after
+  // layout settles (rAF) and using the scroll container's own height (not
+  // window.innerHeight, which wrongly included the sticky header above it
+  // and pushed the "centered" position off target).
   useEffect(() => {
     if (!scrollRef.current || !started) return
     const container = scrollRef.current
-    const svgEl = container.querySelector('svg')
-    if (!svgEl) return
 
-    // Calculate position
-    const rendered = svgEl.getBoundingClientRect()
-    const pos = getDayNodePos(mapCurrentWeek, mapCurrentDay)
-    const ratio = pos.y / 2750
-    const pxY = ratio * rendered.height
-    const halfVP = window.innerHeight * 0.45
+    const raf = requestAnimationFrame(() => {
+      const svgEl = container.querySelector('svg')
+      if (!svgEl) return
 
-    container.scrollTo({ top: pxY - halfVP, behavior: 'smooth' })
+      const rendered = svgEl.getBoundingClientRect()
+      const pos = getDayNodePos(mapCurrentWeek, mapCurrentDay)
+      const ratio = pos.y / 2750
+      const pxY = ratio * rendered.height
+      const halfVP = container.clientHeight * 0.45
+
+      container.scrollTo({ top: Math.max(0, pxY - halfVP), behavior: 'auto' })
+    })
+
+    return () => cancelAnimationFrame(raf)
   }, [started, mapCurrentWeek, mapCurrentDay])
 
   const openDay = (weekId, dayId) => setSelected({ weekId, dayId })
@@ -266,6 +365,15 @@ export default function PathMap() {
           status={selectedStatus}
           onClose={closeSheet}
           onStart={startDay}
+        />
+      )}
+
+      {/* Unit transition celebration (shown once after completing a full week) */}
+      {unitBanner && (
+        <UnitTransitionBanner
+          completedWeekId={unitBanner.completedWeekId}
+          nextWeekId={mapCurrentWeek}
+          onClose={() => setUnitBanner(null)}
         />
       )}
     </div>

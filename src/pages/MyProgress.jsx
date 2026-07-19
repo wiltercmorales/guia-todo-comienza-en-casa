@@ -29,7 +29,7 @@ export default function MyProgress() {
   const navigate = useNavigate()
   const {
     childName, mapCurrentWeek, mapCurrentDay,
-    completedDays, earnedMedals, earnedStickers, streak,
+    completedDays, earnedMedals, earnedStickers, streak, stars,
     getWeekDayCount, getTotalCompletedDays, getMapProgress,
     lastActiveDate,
   } = useApp()
@@ -86,7 +86,7 @@ export default function MyProgress() {
               <strong>{done}</strong> de <strong>{total}</strong> días completados
             </p>
             <p className="font-body text-forest-500 text-xs mt-0.5">
-              Semana actual: {mapCurrentWeek}/10 · Día: {mapCurrentDay}/7
+              Semana actual: {mapCurrentWeek} • Día: {mapCurrentDay}/7
             </p>
           </div>
         </div>
@@ -108,7 +108,7 @@ export default function MyProgress() {
 
       {/* Stat grid */}
       <div className="grid grid-cols-2 gap-3">
-        <StatCard icon="⭐" value={earnedStickers.length} label="Stickers ganados" color="gold" />
+        <StatCard icon="⭐" value={stars} label="Estrellas" color="gold" />
         <StatCard icon="🏅" value={earnedMedals.length} label="Medallas de semana" color="rose" />
         <StatCard icon="🔥" value={streak} label="Días seguidos" color="sky" />
         <StatCard icon="✅" value={totalDays} label="Días completados" color="forest" />

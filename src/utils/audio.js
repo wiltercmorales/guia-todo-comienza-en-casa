@@ -47,6 +47,19 @@ export function playClick() {
 
 export function playCoin() {
   try {
+    const audio = new Audio('/assets-duo/correct.wav')
+    audio.volume = 0.25
+    audio.play().catch(() => {
+      // Fallback to synth if blocked or not found
+      playCoinSynth()
+    })
+  } catch (e) {
+    playCoinSynth()
+  }
+}
+
+function playCoinSynth() {
+  try {
     const ctx = getAudioContext()
     if (!ctx) return
 
@@ -55,7 +68,6 @@ export function playCoin() {
     const gainNode = ctx.createGain()
 
     osc.type = 'sine'
-    // Ascent coin pitch: E5 (659Hz) to B5 (988Hz)
     osc.frequency.setValueAtTime(659.25, now)
     osc.frequency.setValueAtTime(987.77, now + 0.08)
 
@@ -99,6 +111,18 @@ export function playBell() {
 }
 
 export function playFanfare() {
+  try {
+    const audio = new Audio('/assets-duo/finish.mp3')
+    audio.volume = 0.3
+    audio.play().catch(() => {
+      playFanfareSynth()
+    })
+  } catch (e) {
+    playFanfareSynth()
+  }
+}
+
+function playFanfareSynth() {
   try {
     const ctx = getAudioContext()
     if (!ctx) return

@@ -1,15 +1,9 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Map, BarChart2, BookOpen, Star, Heart, ChevronLeft, MoreHorizontal, CheckSquare } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
-
-const NAV_ITEMS = [
-  { to: '/mapa',      icon: Map,         label: 'Mapa'      },
-  { to: '/hoy',       icon: CheckSquare, label: 'Día'       },
-  { to: '/mi-avance', icon: BarChart2,   label: 'Avance'    },
-  { to: '/pasaporte', icon: BookOpen,    label: 'Pasaporte' },
-  { to: '/desafios',  icon: Star,        label: 'Desafíos'  },
-]
+import { useApp } from '../context/AppContext'
+import Sidebar from './Sidebar'
 
 const PAGE_TITLES = {
   '/mapa':       'Camino al Cielo',
@@ -19,6 +13,8 @@ const PAGE_TITLES = {
   '/semanas':    'Plan de Semanas',
   '/pasaporte':  'Mi Pasaporte',
   '/desafios':   'Desafíos',
+  '/tienda':     'Tienda de Estrellas',
+  '/liga':       'Liga Familiar',
   '/padres':     'Para Padres',
   '/rutina':     'Rutina Diaria',
   '/cierre':     'Cierre del Programa',
@@ -26,6 +22,8 @@ const PAGE_TITLES = {
 
 const MORE_LINKS = [
   { to: '/dashboard', label: '🏠 Inicio / Resumen'   },
+  { to: '/tienda',    label: '🛍️ Tienda de estrellas' },
+  { to: '/liga',      label: '👨‍👩‍👧‍👦 Liga familiar'      },
   { to: '/semanas',   label: '📅 Plan de semanas'     },
   { to: '/rutina',    label: '📋 Rutina diaria'       },
   { to: '/padres',    label: '💛 Para padres'         },
@@ -46,7 +44,7 @@ function MoreMenu({ onClose }) {
       />
       <motion.div
         key="menu"
-        className="fixed left-1/2 -translate-x-1/2 w-full max-w-2xl bg-white border border-cream-200 rounded-t-2xl z-40 shadow-warm-lg"
+        className="fixed left-1/2 lg:left-[calc(50%_+_8rem)] -translate-x-1/2 w-full max-w-2xl bg-white border border-cream-200 rounded-t-2xl z-40 shadow-warm-lg"
         style={{ bottom: 68 }}
         initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -73,7 +71,25 @@ function MoreMenu({ onClose }) {
 export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { mapCurrentWeek, mapCurrentDay } = useApp()
   const [showMore, setShowMore] = useState(false)
+  const mainRef = useRef(null)
+
+  // Every route change should open at the top of the page (e.g. the Daily
+  // Experience must always start on "Estudio de la Biblia", not wherever the
+  // previous day happened to be scrolled to — the scrollable <main> element
+  // persists across navigations, so React Router won't reset it on its own).
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [location.pathname])
+
+  const navItems = [
+    { to: '/mapa',      icon: Map,         label: 'Mapa'      },
+    { to: `/dia/${mapCurrentWeek}/${mapCurrentDay}`, icon: CheckSquare, label: 'Día' },
+    { to: '/mi-avance', icon: BarChart2,   label: 'Avance'    },
+    { to: '/pasaporte', icon: BookOpen,    label: 'Pasaporte' },
+    { to: '/desafios',  icon: Star,        label: 'Desafíos'  },
+  ]
 
   const isMapPage  = location.pathname === '/mapa'
   const isDayPage  = location.pathname.startsWith('/dia/')
@@ -85,7 +101,9 @@ export default function Layout() {
     : (PAGE_TITLES[location.pathname] || 'Todo Comienza en Casa')
 
   return (
-    <div className="min-h-screen bg-cream-100 flex flex-col max-w-2xl mx-auto">
+    <div className="min-h-screen bg-cream-100">
+    <Sidebar />
+    <div className="flex flex-col min-h-screen max-w-2xl mx-auto lg:max-w-3xl lg:ml-64">
 
       {/* Top bar — hidden on map, day, and passport (they have their own headers) */}
       {!isMapPage && !isDayPage && location.pathname !== '/pasaporte' && (
@@ -118,7 +136,7 @@ export default function Layout() {
       {/* Page content
           Map page: overflow-hidden + flex so PathMap fills exactly the remaining space.
           Other pages: overflow-y-auto + pb-24 (normal scroll). */}
-      <main className={
+      <main ref={mainRef} className={
         isMapPage
           ? 'flex-1 overflow-hidden flex flex-col min-h-0'
           : 'flex-1 overflow-y-auto pb-24 animate-fade-in'
@@ -139,13 +157,14 @@ export default function Layout() {
           </footer>
         )}
       </main>
+    </div>
 
-      {/* Bottom nav */}
+      {/* Bottom nav (mobile only — desktop uses the sidebar) */}
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl
-        bg-white/95 backdrop-blur-md border-t border-cream-200 z-20 shadow-warm">
+        bg-white/95 backdrop-blur-md border-t border-cream-200 z-20 shadow-warm lg:hidden">
         <LayoutGroup id="bottomNav">
           <div className="flex items-center justify-around px-1 py-1.5">
-            {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+            {navItems.map(({ to, icon: Icon, label }) => (
               <NavLink
                 key={to}
                 to={to}

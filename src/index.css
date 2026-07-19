@@ -41,6 +41,65 @@
   .card-lift:hover {
     @apply -translate-y-0.5 shadow-card-hover;
   }
+
+  /* 3D Tactile Buttons (Duolingo Style) */
+  .btn-3d-wrap {
+    position: relative;
+    display: block;
+    width: 100%;
+    background-color: transparent;
+    cursor: pointer;
+  }
+  .btn-3d-shadow {
+    position: absolute;
+    inset: 0;
+    top: 4px;
+    border-radius: 1.5rem; /* 24px */
+    z-index: 1;
+    transition: background-color 0.2s ease;
+  }
+  .btn-3d-front {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    border-radius: 1.5rem;
+    transform: translateY(-4px);
+    transition: transform 0.08s ease-out, background-color 0.15s ease;
+    user-select: none;
+  }
+  .btn-3d-wrap:active .btn-3d-front {
+    transform: translateY(0px);
+  }
+  .btn-3d-wrap.disabled {
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .btn-3d-wrap.disabled .btn-3d-front {
+    transform: translateY(0px);
+    @apply bg-slate-200 border-slate-300 text-slate-400;
+  }
+  .btn-3d-wrap.disabled .btn-3d-shadow {
+    @apply bg-slate-300;
+  }
+
+  /* Progress Bar Glow Overlay */
+  .progress-gloss-bar {
+    position: relative;
+  }
+  .progress-gloss-bar::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 4%;
+    width: 92%;
+    height: 3px;
+    border-radius: 99px;
+    background-color: rgba(255, 255, 255, 0.3);
+    pointer-events: none;
+  }
 }
 
 /* Scrollbar */

@@ -1,112 +1,118 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Flame, Star, X, Sparkles } from 'lucide-react'
+import { ChevronLeft, X, Sparkles, Flame } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../context/AppContext'
-import { AVATARS, getAvatarPath, getAvatarFallback } from '../data/assets'
+import { AVATARS } from '../data/assets'
+import AvatarFrame from './AvatarFrame'
 
-export default function Header({ title, showBack }) {
+export default function Header({ showBack }) {
   const navigate = useNavigate()
-  const { childName, childAvatar, setChildAvatar, streak, earnedStickers } = useApp()
+  const {
+    childName,
+    childAvatar,
+    setChildAvatar,
+    activeFrame,
+    streak,
+    stars,
+    mapCurrentWeek,
+    mapCurrentDay,
+    getWeekDayCount,
+  } = useApp()
   const [showAvatarSelector, setShowAvatarSelector] = useState(false)
 
-  const activeAvatarPath = getAvatarPath(childAvatar)
-  const activeAvatarFallback = getAvatarFallback(childAvatar)
+  // Current weekly progress percentage (days completed in mapCurrentWeek / 7)
+  const completedInCurrentWeek = getWeekDayCount(mapCurrentWeek)
+  const weeklyProgressPercent = Math.min(100, Math.round((completedInCurrentWeek / 7) * 100))
 
   return (
     <>
-      <header className="bg-white/90 backdrop-blur-md border-b-2 border-cream-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm rounded-b-3xl">
-        <div className="flex items-center gap-2">
-          {showBack ? (
+      <header className="bg-white/95 backdrop-blur-md border-b-4 border-cream-200 px-4 py-3 sticky top-0 z-30 shadow-md rounded-b-[2rem] flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          {/* Child Profile & Name */}
+          <div className="flex items-center gap-2.5">
+            {showBack ? (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => navigate(-1)}
+                className="p-2 rounded-2xl bg-cream-200 text-forest-600 hover:bg-cream-300 transition-colors flex-shrink-0"
+              >
+                <ChevronLeft size={20} strokeWidth={3} />
+              </motion.button>
+            ) : (
+              <motion.button
+                whileHover={{ scale: 1.1, rotate: -5 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowAvatarSelector(true)}
+                className="relative flex-shrink-0 shadow-md rounded-2xl"
+              >
+                <AvatarFrame avatarId={childAvatar} frameId={activeFrame} size={44} />
+                <div className="absolute -bottom-0.5 -right-0.5 bg-gold-400 border border-white rounded-full p-0.5 shadow-sm">
+                  <Sparkles size={8} className="text-white fill-white" />
+                </div>
+              </motion.button>
+            )}
+
+            <div className="min-w-0">
+              <h2 className="font-display font-black text-forest-800 text-sm leading-tight truncate">
+                {childName || 'Mi Camino'}
+              </h2>
+              <p className="font-body text-[11px] text-forest-500 font-bold leading-none mt-0.5">
+                Semana {mapCurrentWeek} • Día {mapCurrentDay}
+              </p>
+            </div>
+          </div>
+
+          {/* Stats Bar — just streak + stars, kept simple and legible */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Streak */}
+            {streak > 0 && (
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="flex items-center gap-1 bg-orange-50 border-2 border-orange-200 rounded-2xl px-2.5 py-1.5 shadow-sm"
+              >
+                <Flame size={16} className="text-orange-500 fill-orange-400" />
+                <span className="font-body text-sm font-black text-orange-600">{streak}</span>
+              </motion.div>
+            )}
+
+            {/* Stars — tap to open the Shop */}
             <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-2xl bg-cream-200 text-forest-600 hover:bg-cream-300 transition-colors flex-shrink-0"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.92 }}
+              onClick={() => navigate('/tienda')}
+              className="flex items-center gap-1.5 bg-gold-50 border-2 border-gold-200 rounded-2xl px-2.5 py-1.5 shadow-sm"
+              title="Ir a la Tienda de Estrellas"
             >
-              <ChevronLeft size={20} strokeWidth={2.5} />
+              <img src="/assets-duo/points.svg" alt="Estrellas" className="w-4.5 h-4.5 object-contain" />
+              <span className="font-body text-sm font-black text-gold-600">{stars}</span>
             </motion.button>
-          ) : (
-            <motion.div
-              whileHover={{ rotate: 10 }}
-              className="w-9 h-9 rounded-2xl bg-forest-100 flex items-center justify-center text-lg flex-shrink-0 border border-forest-200"
-            >
-              🚀
-            </motion.div>
-          )}
-          
-          <div className="min-w-0 max-w-[150px]">
-            <h1 className="font-display font-bold text-forest-800 text-sm md:text-base leading-tight truncate">
-              {title || 'Camino al Cielo'}
-            </h1>
-            <p className="font-body text-[10px] text-forest-400 font-bold uppercase tracking-wider truncate">
-              {childName || 'Mi Camino'}
-            </p>
           </div>
         </div>
 
-        {/* Stats and Avatar Selector */}
-        <div className="flex items-center gap-2">
-          {/* Streak Counter */}
-          {streak > 0 && (
+        {/* Weekly Progress Bar */}
+        <div className="flex items-center gap-2 px-1 py-0.5">
+          <span className="text-[10px] font-bold text-forest-500 font-body flex-shrink-0">
+            Progreso Semanal:
+          </span>
+          <div className="flex-1 h-3.5 bg-cream-100 rounded-full border-2 border-cream-200 overflow-hidden relative progress-gloss-bar">
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              whileHover={{ scale: 1.05 }}
-              className="flex items-center gap-1 bg-orange-50 border-2 border-orange-200 rounded-2xl px-2 py-1 shadow-sm"
-            >
-              <motion.span
-                animate={{ y: [0, -3, 0] }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-              >
-                <Flame size={14} className="text-orange-500 fill-orange-400" />
-              </motion.span>
-              <span className="font-body text-xs font-black text-orange-600">{streak}</span>
-            </motion.div>
-          )}
-
-          {/* Stickers count */}
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="flex items-center gap-1 bg-gold-50 border-2 border-gold-200 rounded-2xl px-2 py-1 shadow-sm cursor-pointer"
-            onClick={() => navigate('/pasaporte')}
-          >
-            <motion.span
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 10, ease: 'linear' }}
-            >
-              <Star size={14} className="text-gold-500 fill-gold-300" />
-            </motion.span>
-            <span className="font-body text-xs font-black text-gold-600">
-              {earnedStickers.length}
-            </span>
-          </motion.div>
-
-          {/* Tap-to-Change Avatar Icon */}
-          <motion.button
-            whileHover={{ scale: 1.1, rotate: -5 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setShowAvatarSelector(true)}
-            className="w-10 h-10 rounded-2xl border-2 border-forest-300 bg-forest-50 p-0.5 overflow-hidden flex items-center justify-center shadow-md relative group flex-shrink-0"
-          >
-            <img
-              src={activeAvatarPath}
-              alt="Avatar"
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                e.target.src = activeAvatarFallback
-              }}
+              initial={{ width: 0 }}
+              animate={{ width: `${weeklyProgressPercent}%` }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="h-full bg-forest-gradient rounded-full"
             />
-            <div className="absolute -bottom-0.5 -right-0.5 bg-gold-400 border border-white rounded-full p-0.5 shadow-sm">
-              <Sparkles size={8} className="text-white fill-white" />
-            </div>
-          </motion.button>
+            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-forest-800 leading-none">
+              {completedInCurrentWeek} / 7 días
+            </span>
+          </div>
         </div>
       </header>
 
       {/* Interactive Avatar Selection Modal */}
       <AnimatePresence>
         {showAvatarSelector && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 lg:pl-64">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -142,7 +148,7 @@ export default function Header({ title, showBack }) {
                 </button>
               </div>
 
-              {/* Grid list of 22 avatars */}
+              {/* Grid list of 37 avatars */}
               <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-4 gap-3 py-2 scroll-smooth">
                 {AVATARS.map((avatar) => {
                   const isSelected = childAvatar === avatar.id

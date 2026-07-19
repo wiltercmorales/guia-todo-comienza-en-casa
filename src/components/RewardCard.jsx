@@ -54,7 +54,7 @@ export default function RewardCard({ type, weekId, dayId, onClose }) {
   }, [])
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 lg:pl-64">
       {/* Dim backdrop overlay */}
       <motion.div
         initial={{ opacity: 0 }}

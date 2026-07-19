@@ -9,6 +9,7 @@ export default function Home() {
   const navigate = useNavigate()
   const { started, startProgram } = useApp()
   const [name, setName] = useState('')
+  const [age, setAge] = useState('8')
   const [showForm, setShowForm] = useState(false)
   const [selectedAvatar, setSelectedAvatar] = useState('nino')
 
@@ -23,8 +24,9 @@ export default function Home() {
   }
 
   const handleConfirm = () => {
+    if (!name.trim()) return
     playBell()
-    startProgram(name.trim(), selectedAvatar)
+    startProgram(name.trim(), age, selectedAvatar)
     navigate('/mapa')
   }
 
@@ -36,16 +38,13 @@ export default function Home() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-sky-100/20 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
-        {/* Floating hero icon */}
-        <div className="relative mb-8 animate-float">
-          <div className="w-28 h-28 rounded-[2rem] bg-white shadow-warm-lg flex items-center justify-center">
-            <span className="text-6xl">🏠</span>
+        {/* Floating hero illustration with Duo mascot */}
+        <div className="relative mb-6 animate-float">
+          <div className="w-32 h-32 flex items-center justify-center">
+            <img src="/assets-duo/mascot.svg" alt="Duo Mascota" className="w-full h-full object-contain" />
           </div>
-          <div className="absolute -top-3 -right-3 w-10 h-10 rounded-2xl bg-gold-gradient shadow-warm flex items-center justify-center text-xl animate-float-slow">
+          <div className="absolute -top-1 -right-1 w-10 h-10 rounded-2xl bg-gold-gradient shadow-warm flex items-center justify-center text-xl animate-float-slow">
             ✝️
-          </div>
-          <div className="absolute -bottom-2 -left-3 w-9 h-9 rounded-xl bg-sky-gradient shadow-blue flex items-center justify-center text-lg">
-            ⭐
           </div>
         </div>
 
@@ -81,29 +80,50 @@ export default function Home() {
 
         {/* CTA */}
         {!showForm ? (
-          <button
-            onClick={handleStart}
-            className="w-full max-w-sm bg-forest-gradient text-white font-body font-bold py-4 px-8 rounded-2xl flex items-center justify-center gap-2 shadow-green-lg transition-all duration-200 hover:shadow-green active:scale-95 text-base"
-          >
-            {started ? '✅ Continuar programa' : '🚀 Iniciar programa'}
-            <ArrowRight size={20} />
-          </button>
+          <div className="btn-3d-wrap w-full max-w-sm h-14">
+            <div className="btn-3d-shadow bg-green-700" />
+            <button
+              onClick={handleStart}
+              className="btn-3d-front w-full h-full bg-forest-gradient text-white font-body font-bold py-4 px-8 border border-forest-400 text-base flex items-center justify-center gap-2"
+            >
+              {started ? '✅ Continuar programa' : '🚀 Iniciar programa'}
+              <ArrowRight size={20} />
+            </button>
+          </div>
         ) : (
           <div className="w-full max-w-sm space-y-3 animate-scale-in">
             <div className="bg-white rounded-3xl p-5 shadow-warm border-2 border-cream-200">
-              <p className="font-display text-forest-800 font-bold mb-3 text-center text-sm md:text-base">
-                ¿Cómo te llamas?
-              </p>
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Tu nombre aquí..."
-                className="w-full bg-cream-50 rounded-2xl px-4 py-3 font-body text-forest-700 placeholder-forest-300 border-2 border-cream-200 focus:border-forest-400 focus:outline-none mb-4 text-center font-bold text-sm"
-                maxLength={30}
-                autoFocus
-                onKeyDown={e => e.key === 'Enter' && handleConfirm()}
-              />
+              <div className="mb-4">
+                <p className="font-display text-forest-800 font-bold mb-1.5 text-center text-sm">
+                  ¿Cómo te llamas?
+                </p>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Tu nombre aquí..."
+                  className="w-full bg-cream-50 rounded-2xl px-4 py-2.5 font-body text-forest-700 placeholder-forest-300 border-2 border-cream-200 focus:border-forest-400 focus:outline-none text-center font-bold text-sm mb-3"
+                  maxLength={30}
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && handleConfirm()}
+                />
+              </div>
+
+              <div className="mb-4">
+                <p className="font-display text-forest-800 font-bold mb-1.5 text-center text-sm">
+                  ¿Cuántos años tienes?
+                </p>
+                <select
+                  value={age}
+                  onChange={e => setAge(e.target.value)}
+                  className="w-full bg-cream-50 rounded-2xl px-4 py-2.5 font-body text-forest-700 border-2 border-cream-200 focus:border-forest-400 focus:outline-none text-center font-bold text-sm"
+                >
+                  <option value="8">8 años</option>
+                  <option value="9">9 años</option>
+                  <option value="10">10 años</option>
+                  <option value="Otro">Otro</option>
+                </select>
+              </div>
 
               <p className="font-display text-forest-800 font-bold mb-3.5 text-center text-xs md:text-sm">
                 Elige tu personaje:
@@ -146,12 +166,15 @@ export default function Home() {
                 })}
               </div>
 
-              <button
-                onClick={handleConfirm}
-                className="w-full bg-forest-gradient text-white font-body font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-green active:scale-95 transition-all text-base border border-forest-400"
-              >
-                ¡Comenzamos! <ArrowRight size={18} />
-              </button>
+              <div className="btn-3d-wrap w-full h-14">
+                <div className="btn-3d-shadow bg-green-700" />
+                <button
+                  onClick={handleConfirm}
+                  className="btn-3d-front w-full h-full bg-forest-gradient text-white font-body font-black py-4 border border-forest-400 text-base flex items-center justify-center gap-2"
+                >
+                  ¡Comenzamos! <ArrowRight size={18} />
+                </button>
+              </div>
               <button
                 onClick={() => setShowForm(false)}
                 className="w-full mt-2 text-forest-400 font-body text-xs py-2 hover:text-forest-600 transition-colors font-bold"

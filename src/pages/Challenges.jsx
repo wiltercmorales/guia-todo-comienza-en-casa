@@ -1,195 +1,203 @@
 import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { CheckCircle, Lock, Sparkles, Award, Star, Gift } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { challenges } from '../data/challenges'
-import { CheckCircle, RotateCcw } from 'lucide-react'
-
-const colorMap = {
-  sky: {
-    front: 'from-sky-100 to-sky-200',
-    back: 'from-sky-200 to-sky-300',
-    badge: 'bg-sky-500',
-    text: 'text-sky-700',
-    border: 'border-sky-300',
-    btn: 'bg-sky-500 hover:bg-sky-600',
-  },
-  gold: {
-    front: 'from-gold-100 to-gold-200',
-    back: 'from-gold-200 to-gold-300',
-    badge: 'bg-gold-500',
-    text: 'text-gold-700',
-    border: 'border-gold-300',
-    btn: 'bg-gold-500 hover:bg-gold-600',
-  },
-  rose: {
-    front: 'from-rose-100 to-rose-200',
-    back: 'from-rose-200 to-rose-300',
-    badge: 'bg-rose-400',
-    text: 'text-rose-600',
-    border: 'border-rose-300',
-    btn: 'bg-rose-400 hover:bg-rose-500',
-  },
-  forest: {
-    front: 'from-forest-100 to-forest-200',
-    back: 'from-forest-200 to-forest-300',
-    badge: 'bg-forest-500',
-    text: 'text-forest-600',
-    border: 'border-forest-300',
-    btn: 'bg-forest-500 hover:bg-forest-600',
-  },
-}
-
-function ChallengeCard({ challenge, completed, onToggle }) {
-  const [flipped, setFlipped] = useState(false)
-  const c = colorMap[challenge.color] || colorMap.sky
-
-  return (
-    <div className="relative" style={{ perspective: '1000px', height: '220px' }}>
-      <div
-        className="flip-card-inner w-full h-full"
-        style={{
-          transition: 'transform 0.55s cubic-bezier(0.4,0,0.2,1)',
-          transformStyle: 'preserve-3d',
-          position: 'relative',
-          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-        }}
-      >
-        {/* Front */}
-        <div
-          className={`absolute inset-0 rounded-4xl bg-gradient-to-br ${c.front} border-2 ${c.border} p-5 flex flex-col items-center justify-center text-center cursor-pointer
-            ${completed ? 'opacity-70' : ''}`}
-          style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
-          onClick={() => setFlipped(true)}
-        >
-          {completed && (
-            <div className="absolute top-3 right-3">
-              <CheckCircle size={22} className="text-forest-500" />
-            </div>
-          )}
-          <div className="text-5xl mb-3">{challenge.icon}</div>
-          <h3 className={`font-display font-bold ${c.text} text-xl mb-1`}>{challenge.title}</h3>
-          <p className="font-body text-forest-500 text-xs">{challenge.description}</p>
-          <p className="font-body text-forest-400 text-[10px] mt-2">Toca para ver el desafío →</p>
-        </div>
-
-        {/* Back */}
-        <div
-          className={`absolute inset-0 rounded-4xl bg-gradient-to-br ${c.back} border-2 ${c.border} p-4 flex flex-col cursor-pointer`}
-          style={{
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
-            transform: 'rotateY(180deg)',
-          }}
-        >
-          <button
-            onClick={(e) => { e.stopPropagation(); setFlipped(false) }}
-            className="absolute top-3 right-3 p-1.5 bg-white/50 rounded-xl"
-          >
-            <RotateCcw size={14} className={c.text} />
-          </button>
-
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-2xl">{challenge.icon}</span>
-            <h3 className={`font-display font-bold ${c.text} text-base leading-tight`}>{challenge.title}</h3>
-          </div>
-
-          <div className="flex-1 space-y-2">
-            <div className="bg-white/60 rounded-2xl px-3 py-2">
-              <p className="font-body text-[10px] text-forest-500 font-bold uppercase tracking-wider mb-0.5">Ejemplo</p>
-              <p className="font-body text-forest-700 text-xs leading-relaxed">{challenge.example}</p>
-            </div>
-            <div className="bg-white/60 rounded-2xl px-3 py-1.5">
-              <p className={`font-display italic text-xs ${c.text} leading-relaxed`}>"{challenge.verse}"</p>
-            </div>
-          </div>
-
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggle() }}
-            className={`mt-3 w-full ${c.btn} text-white font-body font-bold py-2.5 rounded-2xl text-sm transition-all active:scale-95
-              flex items-center justify-center gap-1.5`}
-          >
-            {completed ? <><CheckCircle size={16} /> ¡Completado!</> : '✅ Lo hice hoy'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { getAvatarPath, getAvatarFallback } from '../data/assets'
+import { playBell, playCoin } from '../utils/audio'
+import confetti from 'canvas-confetti'
 
 export default function Challenges() {
-  const { completedChallenges, toggleChallenge } = useApp()
-  const [filter, setFilter] = useState('all')
+  const {
+    getChallengeProgress,
+    claimedChests,
+    claimChest,
+    stars
+  } = useApp()
 
-  const filtered = filter === 'done'
-    ? challenges.filter(c => completedChallenges.includes(c.id))
-    : filter === 'pending'
-    ? challenges.filter(c => !completedChallenges.includes(c.id))
-    : challenges
+  const challenges = getChallengeProgress()
+  const [openedChest, setOpenedChest] = useState(null) // challengeId of opened chest in modal
+
+  const handleClaimReward = (id) => {
+    playBell()
+    confetti({
+      particleCount: 120,
+      spread: 60,
+      origin: { y: 0.6 }
+    })
+    claimChest(id)
+    setOpenedChest(id)
+  }
+
+  const cofrePath = '/assets-duo/shop.svg'
 
   return (
-    <div className="px-4 py-5 space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl font-bold text-forest-700">Desafíos espirituales</h1>
-        <p className="font-body text-forest-500 text-sm">Toca una tarjeta para ver tu desafío del día</p>
+    <div className="px-4 py-5 space-y-6 pb-24">
+      {/* Header Banner */}
+      <div className="bg-white border-4 border-cream-200 rounded-[2.2rem] p-5 shadow-warm-lg">
+        <h1 className="font-display text-2xl font-black text-forest-700 flex items-center gap-2">
+          <span>🏆</span> Mis Logros y Desafíos
+        </h1>
+        <p className="font-body text-forest-500 text-sm mt-1 leading-normal">
+          ¡Cumple las metas diarias de tu devocional y abre cofres con increíbles premios de estrellas!
+        </p>
       </div>
 
-      {/* Progress */}
-      <div className="bg-gold-100 border-2 border-gold-200 rounded-3xl p-4 flex items-center gap-4">
-        <div className="text-center flex-shrink-0">
-          <p className="font-display font-bold text-gold-700 text-3xl">{completedChallenges.length}</p>
-          <p className="font-body text-gold-600 text-xs">de 10</p>
-        </div>
-        <div className="flex-1">
-          <p className="font-body text-gold-700 font-semibold text-sm mb-1.5">Desafíos completados</p>
-          <div className="h-2.5 bg-gold-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gold-gradient rounded-full transition-all duration-700"
-              style={{ width: `${(completedChallenges.length / 10) * 100}%` }}
-            />
-          </div>
-        </div>
-        <span className="text-3xl">⭐</span>
-      </div>
+      {/* Challenges Grid List */}
+      <div className="grid gap-4">
+        {challenges.map((ch) => {
+          const isDone = ch.completed
+          const isClaimed = claimedChests.includes(ch.id)
+          const isClaimable = isDone && !isClaimed
 
-      {/* Filter */}
-      <div className="flex gap-2">
-        {[
-          { key: 'all', label: 'Todos' },
-          { key: 'pending', label: 'Pendientes' },
-          { key: 'done', label: 'Completados' },
-        ].map(f => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`flex-1 py-2 rounded-2xl font-body font-bold text-xs transition-all
-              ${filter === f.key
-                ? 'bg-forest-500 text-white shadow-green'
-                : 'bg-cream-200 text-forest-500 hover:bg-cream-300'
+          // Calculate percent progress toward target
+          const pct = Math.min(100, Math.round((ch.current / ch.target) * 100))
+
+          return (
+            <motion.div
+              key={ch.id}
+              layout
+              className={`bg-white border-4 rounded-3xl p-4.5 flex gap-4 items-center transition-all ${
+                isClaimable
+                  ? 'border-gold-400 shadow-warm animate-pulse-slow'
+                  : isClaimed
+                  ? 'border-green-200 shadow-sm opacity-90'
+                  : 'border-cream-200 shadow-sm'
               }`}
-          >
-            {f.label}
-          </button>
-        ))}
+            >
+              {/* Left Column: Chest Image & Status */}
+              <div className="flex-shrink-0 flex flex-col items-center justify-center">
+                {isClaimed ? (
+                  <div className="relative">
+                    {/* Open / Claimed state */}
+                    <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center border-2 border-green-200">
+                      <span className="text-3xl">🎁</span>
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-0.5 border border-white">
+                      <CheckCircle size={10} strokeWidth={3} />
+                    </span>
+                  </div>
+                ) : (
+                  <motion.div
+                    animate={isClaimable ? { scale: [1, 1.08, 1], rotate: [0, -3, 3, 0] } : {}}
+                    transition={{ repeat: Infinity, duration: 1.8 }}
+                    onClick={() => isClaimable && handleClaimReward(ch.id)}
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 p-1 cursor-pointer ${
+                      isClaimable
+                        ? 'bg-gold-50 border-gold-300 shadow-gold-sm'
+                        : 'bg-slate-100 border-slate-200 opacity-60'
+                    }`}
+                  >
+                    <img
+                      src={cofrePath}
+                      alt="Cofre"
+                      className="w-full h-full object-contain"
+                    />
+                  </motion.div>
+                )}
+                
+                <span className={`text-[8.5px] font-black uppercase mt-1 leading-none tracking-wider ${
+                  isClaimed ? 'text-green-500' : isClaimable ? 'text-gold-500' : 'text-slate-400'
+                }`}>
+                  {isClaimed ? 'Abierto' : isClaimable ? '¡Listo!' : 'Cerrado'}
+                </span>
+              </div>
+
+              {/* Right Column: Challenge Info & Progress Bar */}
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="min-w-0">
+                  <h3 className="font-display font-black text-forest-800 text-sm leading-tight truncate">
+                    {ch.title}
+                  </h3>
+                  <p className="font-body text-xs text-forest-500 leading-tight pr-1 mt-0.5">
+                    {ch.desc}
+                  </p>
+                </div>
+
+                {/* Progress bar */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-3.5 bg-cream-100 rounded-full border-2 border-cream-200 overflow-hidden relative">
+                    <div
+                      className={`h-full rounded-full ${isDone ? 'bg-forest-gradient' : 'bg-gold-500'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-forest-800 leading-none">
+                      {ch.current} / {ch.target}
+                    </span>
+                  </div>
+                  
+                  {/* Claim Button for complete but unclaimed reward */}
+                  {isClaimable && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleClaimReward(ch.id)}
+                      className="bg-gold-gradient text-white text-[10px] font-body font-black px-3 py-1.5 rounded-xl shadow-warm border border-gold-400 leading-none flex-shrink-0 animate-bounce"
+                    >
+                      ABRIR
+                    </motion.button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )
+        })}
       </div>
 
-      {/* Cards */}
-      <div className="space-y-4">
-        {filtered.map(challenge => (
-          <ChallengeCard
-            key={challenge.id}
-            challenge={challenge}
-            completed={completedChallenges.includes(challenge.id)}
-            onToggle={() => toggleChallenge(challenge.id)}
-          />
-        ))}
-        {filtered.length === 0 && (
-          <div className="text-center py-10">
-            <p className="text-4xl mb-2">🎉</p>
-            <p className="font-display text-forest-700 font-semibold">¡Los completaste todos!</p>
-            <p className="font-body text-forest-400 text-sm mt-1">Dios ve tu corazón y tu esfuerzo</p>
+      {/* Chest Opened Celebration Modal Overlay */}
+      <AnimatePresence>
+        {openedChest && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 lg:pl-64">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setOpenedChest(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ scale: 0.9, y: 55, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 55, opacity: 0 }}
+              className="relative bg-white border-4 border-gold-400 rounded-[2.5rem] p-6 max-w-sm w-full text-center shadow-warm-lg z-10 flex flex-col items-center gap-4"
+            >
+              {/* Chest Animation visual */}
+              <div className="relative w-28 h-28 bg-gold-50 border-2 border-gold-200 rounded-full flex items-center justify-center">
+                <img src="/assets-duo/shop.svg" alt="Cofre Abierto" className="w-16 h-16 object-contain animate-bounce" />
+                <div className="absolute -top-1 -right-1 bg-gold-400 border border-white rounded-full p-1 shadow-sm">
+                  <Star size={12} className="text-white fill-white animate-pulse" />
+                </div>
+              </div>
+
+              {/* Reward Header */}
+              <div className="space-y-1">
+                <h3 className="font-display font-black text-gold-600 text-lg leading-tight uppercase tracking-tight">
+                  🎁 ¡Cofre Abierto!
+                </h3>
+                <h2 className="font-display font-black text-slate-800 text-2xl leading-none">
+                  +15 Estrellas
+                </h2>
+                <p className="font-body text-xs text-slate-400 font-bold px-3 pt-1 leading-normal">
+                  ¡Impresionante! Has reclamado tu recompensa por completar este desafío. Sigue acumulando estrellas para brillar.
+                </p>
+              </div>
+
+              {/* Close / Confirm Claim */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  playCoin()
+                  setOpenedChest(null)
+                }}
+                className="w-full bg-forest-gradient text-white font-body font-black py-3 rounded-2xl shadow-green border border-forest-400 text-sm"
+              >
+                ¡Genial! 🌟
+              </motion.button>
+            </motion.div>
           </div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   )
 }

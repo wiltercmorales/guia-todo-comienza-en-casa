@@ -14,6 +14,8 @@ import Closing from './pages/Closing'
 import PathMap from './pages/PathMap'
 import DailyExperience from './pages/DailyExperience'
 import MyProgress from './pages/MyProgress'
+import Shop from './pages/Shop'
+import FamilyLeague from './pages/FamilyLeague'
 
 export default function App() {
   return (
@@ -26,6 +28,8 @@ export default function App() {
             <Route path="/mapa" element={<PathMap />} />
             <Route path="/dia/:weekId/:dayId" element={<DailyExperience />} />
             <Route path="/mi-avance" element={<MyProgress />} />
+            <Route path="/tienda" element={<Shop />} />
+            <Route path="/liga" element={<FamilyLeague />} />
             {/* Legacy routes (preserved) */}
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/rutina" element={<DailyRoutine />} />

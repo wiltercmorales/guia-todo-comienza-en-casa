@@ -75,7 +75,7 @@ export default function RewardModal({ type, weekId, dayId, onClose }) {
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-6 lg:pl-64">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 

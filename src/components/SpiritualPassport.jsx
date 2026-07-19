@@ -1,40 +1,90 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, Trophy, BookOpen, Heart, Calendar } from 'lucide-react'
+import { Sparkles, Trophy, BookOpen, Calendar, Flame, Star, Award, Clock, ArrowRight } from 'lucide-react'
+import confetti from 'canvas-confetti'
+import { useApp } from '../context/AppContext'
 import { getAvatarPath, getAvatarFallback, getStickerForDay } from '../data/assets'
 import { MAP_WEEKS } from '../data/dailyContent'
+import { playBell } from '../utils/audio'
 
-export default function SpiritualPassport({
-  childName,
-  childAvatar,
-  earnedStickers,
-  earnedMedals,
-}) {
-  const [selectedSticker, setSelectedSticker] = useState(null) // { weekId, dayId, name, path }
+export default function SpiritualPassport({ highlightStamp = null, onDismissHighlight = null }) {
+  const {
+    childName,
+    childAge,
+    childAvatar,
+    startDate,
+    streak,
+    stars,
+    earnedMedals,
+    earnedStickers,
+    completedWeeks,
+    getTotalCompletedDays,
+    getChallengeProgress,
+    timeStudied
+  } = useApp()
+
+  const [selectedSticker, setSelectedSticker] = useState(null)
+  const weekRefs = useRef({})
+
+  // Arriving fresh from finishing a day: auto-open the sticker that was just
+  // earned and scroll its week page into view, so the child sees exactly
+  // where it "got stuck in" the album before continuing.
+  useEffect(() => {
+    if (!highlightStamp) return
+    const { weekId, dayId } = highlightStamp
+    const sticker = getStickerForDay(weekId, dayId)
+
+    const timer = setTimeout(() => {
+      weekRefs.current[weekId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      playBell()
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.4 } })
+      setSelectedSticker({
+        weekId,
+        dayId,
+        name: sticker.name,
+        path: sticker.path,
+        fallback: sticker.fallback,
+        isNew: true,
+      })
+    }, 350)
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const closeStickerDialog = () => {
+    if (selectedSticker?.isNew && onDismissHighlight) {
+      onDismissHighlight()
+    } else {
+      setSelectedSticker(null)
+    }
+  }
 
   const totalDays = 70
-  const completedCount = earnedStickers.length
+  const completedCount = getTotalCompletedDays()
   const progressPct = Math.round((completedCount / totalDays) * 100)
   const activeAvatarPath = getAvatarPath(childAvatar)
+  const challenges = getChallengeProgress()
+  const completedAchievements = challenges.filter(c => c.completed).length
 
   return (
     <div className="space-y-6 select-none">
-      {/* Passport Cover Card */}
+      {/* Passport Book Design */}
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-forest-gradient border-4 border-white rounded-4xl p-6 shadow-green-lg text-white relative overflow-hidden"
+        className="bg-forest-gradient border-4 border-white rounded-[2.5rem] p-6 shadow-green-lg text-white relative overflow-hidden"
       >
-        {/* Sky / Golden rings deco */}
-        <div className="absolute inset-0 opacity-10">
-          {Array.from({ length: 6 }).map((_, i) => (
+        {/* Decorative background vectors */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
               className="absolute rounded-full border-2 border-white"
               style={{
-                width: `${100 + i * 40}px`,
-                height: `${100 + i * 40}px`,
-                top: '50%',
+                width: `${140 + i * 50}px`,
+                height: `${140 + i * 50}px`,
+                top: '40%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
               }}
@@ -42,25 +92,25 @@ export default function SpiritualPassport({
           ))}
         </div>
 
-        <div className="relative">
-          <div className="flex items-start justify-between mb-4">
+        <div className="relative space-y-6">
+          {/* Header Title */}
+          <div className="flex items-center justify-between border-b border-white/20 pb-3">
             <div>
-              <p className="font-body text-[10px] text-forest-200 font-black uppercase tracking-widest mb-1 pl-0.5">
-                Pasaporte Celestial
+              <p className="font-body text-[10px] text-forest-200 font-black uppercase tracking-widest pl-0.5">
+                PASAPORTE CELESTIAL
               </p>
-              <h2 className="font-display font-black text-2xl leading-none">
-                Pasaporte<br />con Jesús
+              <h2 className="font-display font-black text-2xl leading-tight">
+                Mi Pasaporte
               </h2>
             </div>
-            {/* Stamp Icon */}
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl border border-white/30">
               ✈️
             </div>
           </div>
 
-          {/* Child ID Section */}
-          <div className="bg-white/15 border border-white/10 rounded-2xl p-3 flex items-center gap-3.5 mb-5">
-            <div className="w-12 h-12 rounded-xl bg-white/95 border-2 border-gold-300 p-0.5 overflow-hidden flex-shrink-0 flex items-center justify-center">
+          {/* Child ID Info Block */}
+          <div className="bg-white/10 backdrop-blur-md border border-white/25 rounded-3xl p-4 flex flex-col md:flex-row items-center gap-4">
+            <div className="w-20 h-20 rounded-2xl bg-white border-4 border-gold-300 p-1 flex-shrink-0 flex items-center justify-center shadow-md relative">
               <img
                 src={activeAvatarPath}
                 alt="Avatar"
@@ -69,36 +119,64 @@ export default function SpiritualPassport({
                   e.target.src = getAvatarFallback(childAvatar)
                 }}
               />
+              <div className="absolute -bottom-2 -right-2 bg-gold-400 border border-white rounded-full p-1 shadow-sm">
+                <Sparkles size={10} className="text-white fill-white" />
+              </div>
             </div>
-            <div>
-              <p className="font-body text-[9px] text-forest-200 font-bold uppercase tracking-wider">
-                Explorador Celestial
-              </p>
-              <p className="font-display font-black text-base text-white">
-                {childName || 'Pequeño Viajero'} 🌟
-              </p>
+
+            <div className="flex-1 w-full text-center md:text-left space-y-2">
+              <div>
+                <p className="font-body text-[9px] text-forest-200 font-bold uppercase tracking-wider">
+                  Explorador Oficial
+                </p>
+                <p className="font-display font-black text-lg text-white">
+                  {childName || 'Pequeño Viajero'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-left text-xs font-body text-forest-100">
+                <div>
+                  <span className="opacity-75">Edad:</span> <span className="font-black text-white">{childAge || '8'} años</span>
+                </div>
+                <div>
+                  <span className="opacity-75">Inicio:</span> <span className="font-black text-white">{startDate || 'Hoy'}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Stats Bar */}
-          <div className="grid grid-cols-3 gap-1.5 text-center">
-            <div className="bg-white/10 border border-white/5 rounded-xl py-2">
-              <p className="font-display font-black text-xl text-gold-300">{completedCount}</p>
-              <p className="font-body text-[9px] text-forest-200 uppercase font-black tracking-wider">
-                Stickers
-              </p>
+          {/* Detailed Statistics stamps */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {[
+              { label: 'Días Completados', val: completedCount, icon: <Calendar size={13} />, color: 'bg-white/15' },
+              { label: 'Semanas Hechas', val: completedWeeks.length, icon: <Trophy size={13} />, color: 'bg-white/15' },
+              { label: 'Estrellas Ganadas', val: stars, icon: <Star size={13} className="fill-gold-300 text-gold-300" />, color: 'bg-gold-500/20 border-gold-400/30' },
+              { label: 'Medallas Oro', val: earnedMedals.length, icon: <Award size={13} />, color: 'bg-white/15' },
+              { label: 'Racha Activa', val: `${streak} días`, icon: <Flame size={13} className="fill-orange-400 text-orange-400" />, color: 'bg-orange-500/20 border-orange-400/30' },
+              { label: 'Tiempo Estudiado', val: `${timeStudied} min`, icon: <Clock size={13} />, color: 'bg-white/15' }
+            ].map((stat, idx) => (
+              <div key={idx} className={`border border-white/10 rounded-2xl p-2.5 flex items-center gap-2.5 ${stat.color}`}>
+                <div className="p-2 rounded-xl bg-white/10 flex-shrink-0 text-white">
+                  {stat.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-display font-black text-sm md:text-base leading-none text-white">{stat.val}</p>
+                  <p className="font-body text-[9px] text-forest-200 font-bold uppercase tracking-wider truncate mt-0.5">
+                    {stat.label}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Progress Bar */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center text-[10px] text-forest-200 font-body font-black uppercase tracking-wider">
+              <span>Progreso del Programa</span>
+              <span>{progressPct}% ({completedCount}/70 días)</span>
             </div>
-            <div className="bg-white/10 border border-white/5 rounded-xl py-2">
-              <p className="font-display font-black text-xl text-gold-300">{progressPct}%</p>
-              <p className="font-body text-[9px] text-forest-200 uppercase font-black tracking-wider">
-                Avance
-              </p>
-            </div>
-            <div className="bg-white/10 border border-white/5 rounded-xl py-2">
-              <p className="font-display font-black text-xl text-gold-300">{earnedMedals.length}</p>
-              <p className="font-body text-[9px] text-forest-200 uppercase font-black tracking-wider">
-                Medallas
-              </p>
+            <div className="h-3 bg-white/20 rounded-full border border-white/10 overflow-hidden">
+              <div className="h-full bg-gold-gradient rounded-full" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
         </div>
@@ -117,6 +195,7 @@ export default function SpiritualPassport({
           return (
             <motion.div
               key={week.id}
+              ref={(el) => { weekRefs.current[week.id] = el }}
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: weekIdx * 0.05 }}
@@ -207,22 +286,22 @@ export default function SpiritualPassport({
       {/* Floating Sticker Inspection Dialog */}
       <AnimatePresence>
         {selectedSticker && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 lg:pl-64">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelectedSticker(null)}
+              onClick={closeStickerDialog}
               className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             />
-            
+
             <motion.div
               initial={{ scale: 0.9, y: 20, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.9, y: 20, opacity: 0 }}
               className="relative w-full max-w-xs bg-white border-4 border-gold-300 rounded-5xl shadow-warm-lg p-5 z-10 text-center"
             >
-              <div className="w-24 h-24 rounded-full bg-gold-50 border-2 border-gold-200 flex items-center justify-center p-2.5 mx-auto mb-3 shadow-inner">
+              <div className={`w-24 h-24 rounded-full bg-gold-50 border-2 border-gold-200 flex items-center justify-center p-2.5 mx-auto mb-3 shadow-inner ${selectedSticker.isNew ? 'stamp-animation' : ''}`}>
                 <img
                   src={selectedSticker.path}
                   alt={selectedSticker.name}
@@ -233,20 +312,26 @@ export default function SpiritualPassport({
                 />
               </div>
               <h4 className="font-body text-[10px] font-black text-gold-600 uppercase tracking-widest mb-0.5">
-                Sticker Coleccionado
+                {selectedSticker.isNew ? '¡Nueva Estampa Ganada!' : 'Sticker Coleccionado'}
               </h4>
               <h3 className="font-display font-black text-xl text-forest-800 leading-tight mb-2">
                 {selectedSticker.name}
               </h3>
               <p className="font-body text-xs text-slate-500 leading-relaxed mb-4">
-                Ganado el día {selectedSticker.dayId} de la semana {selectedSticker.weekId} al tener tu momento con Dios.
+                {selectedSticker.isNew
+                  ? `¡Se pegó en la página de la semana ${selectedSticker.weekId} de tu pasaporte!`
+                  : `Ganado el día ${selectedSticker.dayId} de la semana ${selectedSticker.weekId} al tener tu momento con Dios.`}
               </p>
 
               <button
-                onClick={() => setSelectedSticker(null)}
-                className="bg-gold-500 text-white font-body font-bold px-6 py-2 rounded-2xl shadow-warm hover:bg-gold-600 transition-colors text-xs"
+                onClick={closeStickerDialog}
+                className="bg-gold-500 text-white font-body font-bold px-6 py-2.5 rounded-2xl shadow-warm hover:bg-gold-600 transition-colors text-xs inline-flex items-center gap-1.5"
               >
-                Cerrar 🌟
+                {selectedSticker.isNew ? (
+                  <>Volver a mi camino <ArrowRight size={13} /></>
+                ) : (
+                  'Cerrar 🌟'
+                )}
               </button>
             </motion.div>
           </div>
