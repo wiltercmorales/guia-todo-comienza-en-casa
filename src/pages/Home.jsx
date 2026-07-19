@@ -61,7 +61,7 @@ export default function Home() {
         <div className="w-full max-w-sm space-y-2.5 mb-10">
           {[
             { icon: <BookOpen size={18} />, text: '10 semanas de guía paso a paso', color: 'sky' },
-            { icon: <Users size={18} />, text: 'Padres e hijos de 8 y 9 años', color: 'forest' },
+            { icon: <Users size={18} />, text: 'Padres e hijos de 7 y 8 años', color: 'forest' },
             { icon: <Star size={18} />, text: 'Oración, Biblia y acción diaria', color: 'gold' },
             { icon: <Heart size={18} />, text: 'Pasaporte con Jesús incluido', color: 'rose' },
           ].map((item, i) => (
@@ -118,10 +118,8 @@ export default function Home() {
                   onChange={e => setAge(e.target.value)}
                   className="w-full bg-cream-50 rounded-2xl px-4 py-2.5 font-body text-forest-700 border-2 border-cream-200 focus:border-forest-400 focus:outline-none text-center font-bold text-sm"
                 >
+                  <option value="7">7 años</option>
                   <option value="8">8 años</option>
-                  <option value="9">9 años</option>
-                  <option value="10">10 años</option>
-                  <option value="Otro">Otro</option>
                 </select>
               </div>
 
